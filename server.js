@@ -466,7 +466,7 @@ function handleLogin(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  let urlPath = req.url === '/' ? '/login.html' : req.url;
+  let urlPath = req.url === '/' ? '/final.html' : req.url;
   urlPath = urlPath.split('?')[0];
 
   if (req.method === 'POST' && urlPath === '/api/login') {
@@ -527,7 +527,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running at http://0.0.0.0:${PORT}/`);
-  console.log(`  Main app:  http://localhost:${PORT}/ (login.html)`);
+  console.log(`  Main app:  http://localhost:${PORT}/ (final.html)`);
   console.log(`  Calculator: http://localhost:${PORT}/saver.html`);
   console.log(`  Reporting:  http://localhost:${PORT}/Reporting.html`);
   console.log(`  Add Brand:  http://localhost:${PORT}/AddBrand.html`);
