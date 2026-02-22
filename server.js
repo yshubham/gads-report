@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = __dirname;
+// Use cwd so Railway/deployment serves from project root; resolve for security checks
+const PUBLIC_DIR = path.resolve(process.cwd());
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -97,16 +98,21 @@ function handleUpdateData(req, res) {
     }
     function writeDataJson(campaignOverrides) {
       fs.readFile(DATA_JSON_PATH, 'utf8', (err, data) => {
-        if (err) {
-          sendJson(res, 500, { error: 'Could not read data.json' });
-          return;
-        }
         let json;
-        try {
-          json = JSON.parse(data);
-        } catch (e) {
-          sendJson(res, 500, { error: 'Invalid data.json' });
-          return;
+        if (err) {
+          if (err.code === 'ENOENT') {
+            json = { campaign: {} };
+          } else {
+            sendJson(res, 500, { error: 'Could not read data.json' });
+            return;
+          }
+        } else {
+          try {
+            json = JSON.parse(data);
+          } catch (e) {
+            sendJson(res, 500, { error: 'Invalid data.json' });
+            return;
+          }
         }
         if (!json.campaign) json.campaign = {};
         json.campaign.clicks = formatWithCommas(clicks);
@@ -442,7 +448,11 @@ function handleLogin(req, res) {
     }
     fs.readFile(CREDENTIALS_PATH, 'utf8', (err, data) => {
       if (err) {
-        sendJson(res, 500, { error: 'Unable to verify credentials' });
+        if (err.code === 'ENOENT') {
+          sendJson(res, 503, { error: 'Credentials not configured. Add credentials.json on the server.' });
+        } else {
+          sendJson(res, 500, { error: 'Unable to verify credentials' });
+        }
         return;
       }
       let creds;
@@ -466,7 +476,7 @@ function handleLogin(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  let urlPath = req.url === '/' ? '/final.html' : req.url;
+  let urlPath = req.url === '/' ? '/Login.html' : req.url;
   urlPath = urlPath.split('?')[0];
 
   if (req.method === 'POST' && urlPath === '/api/login') {
@@ -497,9 +507,11 @@ const server = http.createServer((req, res) => {
     handleDeleteBrand(req, res);
     return;
   }
-  const filePath = path.join(PUBLIC_DIR, urlPath);
+  const relativePath = urlPath.replace(/^\//, '') || 'index.html';
+  const filePath = path.resolve(PUBLIC_DIR, relativePath);
 
-  if (!filePath.startsWith(PUBLIC_DIR)) {
+  const rel = path.relative(PUBLIC_DIR, filePath);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
     res.writeHead(403);
     res.end('Forbidden');
     return;
@@ -508,6 +520,7 @@ const server = http.createServer((req, res) => {
   fs.readFile(filePath, (err, data) => {
     if (err) {
       if (err.code === 'ENOENT') {
+        console.error('Not found:', relativePath);
         res.writeHead(404);
         res.end('Not Found');
         return;
@@ -525,13 +538,20 @@ const server = http.createServer((req, res) => {
   });
 });
 
+if (!fs.existsSync(BRANDS_DIR)) {
+  fs.mkdirSync(BRANDS_DIR, { recursive: true });
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running at http://0.0.0.0:${PORT}/`);
-  console.log(`  Main app:  http://localhost:${PORT}/ (final.html)`);
-  console.log(`  Calculator: http://localhost:${PORT}/saver.html`);
+  console.log(`  Root:       http://localhost:${PORT}/ (Login)`);
+  console.log(`  Login:      http://localhost:${PORT}/Login.html`);
+  console.log(`  Dashboard:  http://localhost:${PORT}/Dashboard.html`);
   console.log(`  Reporting:  http://localhost:${PORT}/Reporting.html`);
   console.log(`  Add Brand:  http://localhost:${PORT}/AddBrand.html`);
   console.log(`  Directory:  http://localhost:${PORT}/Directory.html`);
-  console.log(`  Login:      http://localhost:${PORT}/Login.html`);
-  console.log(`  Dashboard:  http://localhost:${PORT}/Dashboard.html`);
+  console.log(`  Calculator: http://localhost:${PORT}/saver.html`);
+  if (!fs.existsSync(CREDENTIALS_PATH)) {
+    console.warn('  Warning: credentials.json not found — login will return 503 until you add it.');
+  }
 });

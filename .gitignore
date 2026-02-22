@@ -4,7 +4,6 @@ node_modules/
 .DS_Store
 
 # Sensitive – do not commit
-credentials.json
 
 # Generated
 screenshots/
