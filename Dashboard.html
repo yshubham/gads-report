@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Kelvera G-Ads Reporting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        body { display: flex; flex-direction: column; }
+        .main {
+            flex: 1;
+            min-height: calc(100vh - 56px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .time-text {
+            font-size: clamp(4rem, 22vw, 12rem);
+            font-weight: 700;
+            color: var(--color-text);
+            letter-spacing: 0.02em;
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/Dashboard.html" class="brand">Kelvera G-Ads Reporting</a>
+            <div class="nav-links">
+                <a href="/Dashboard.html" class="active">Dashboard</a>
+                <a href="/AddBrand.html">Add Brand</a>
+                <a href="/Directory.html">Directory</a>
+                <a href="/Reporting.html">Reporting</a>
+                <a href="/saver.html">Calculator</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <span class="username" id="navUsername">—</span>
+            <a href="/Login.html" class="btn-logout" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+
+    <main class="main">
+        <div class="time-text" id="timeText">—:—:—</div>
+    </main>
+
+    <script>
+        (function() {
+            var user = sessionStorage.getItem('username');
+            if (!user) { window.location.href = '/Login.html'; return; }
+
+            document.getElementById('navUsername').textContent = user;
+
+            function showTime() {
+                var str = new Date().toLocaleTimeString('en-IN', {
+                    timeZone: 'Asia/Kolkata',
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                document.getElementById('timeText').textContent = str;
+            }
+            showTime();
+            setInterval(showTime, 1000);
+
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                sessionStorage.removeItem('username');
+                window.location.href = '/Login.html';
+            });
+        })();
+    </script>
+</body>
+</html>

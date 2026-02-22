@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator — Kelvera G-Ads Reporting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="calc-page">
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/Dashboard.html" class="brand">Kelvera G-Ads Reporting</a>
+            <div class="nav-links">
+                <a href="/Dashboard.html">Dashboard</a>
+                <a href="/AddBrand.html">Add Brand</a>
+                <a href="/Directory.html">Directory</a>
+                <a href="/Reporting.html">Reporting</a>
+                <a href="/saver.html" class="active">Calculator</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <span class="username" id="navUsername">—</span>
+            <a href="/Login.html" class="btn-logout" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+    <main class="main">
+        <div class="container">
+            <h1 class="page-title">Ad Metrics Calculator</h1>
+            <div class="input-group">
+                <label for="initialSpend">Initial spend (₹)</label>
+                <input type="number" id="initialSpend" placeholder="e.g. 20000" min="0" step="0.01">
+            </div>
+            <button type="button" class="btn" onclick="calculate()">Calculate metrics</button>
+            <button type="button" class="btn btn-download" id="downloadBtn" onclick="downloadJSON()" style="display: none;">Download JSON</button>
+            <button type="button" class="btn btn-download" id="downloadDataJsonBtn" onclick="downloadAsDataJson()" title="Save as data.json in gads-report folder to replace existing" style="display: none;">Download as data.json</button>
+            <div class="results" id="results">
+                <div class="divider"></div>
+                <div class="result-item">
+                    <span class="result-label">CPC (Cost per click)</span>
+                    <span class="result-value" id="cpcValue">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Clicks</span>
+                    <span class="result-value" id="clicksValue">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">CTR</span>
+                    <span class="result-value" id="ctrValue">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Impressions</span>
+                    <span class="result-value" id="impressionsValue">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">CPM</span>
+                    <span class="result-value" id="cpmValue">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Final cost</span>
+                    <span class="result-value" id="finalCostValue">—</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        (function() {
+            var user = sessionStorage.getItem('username');
+            if (!user) { window.location.href = '/Login.html'; return; }
+            document.getElementById('navUsername').textContent = user;
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                sessionStorage.removeItem('username');
+                window.location.href = '/Login.html';
+            });
+        })();
+    </script>
+    <script>
+        let calculatedData = null;
+
+        function randomInRange(min, max, decimals = 2) {
+            const value = Math.random() * (max - min) + min;
+            return parseFloat(value.toFixed(decimals));
+        }
+
+        function formatNumberWithCommas(num) {
+            return num.toLocaleString('en-IN');
+        }
+
+        function calculate() {
+            const initialSpend = parseFloat(document.getElementById('initialSpend').value);
+
+            if (isNaN(initialSpend) || initialSpend <= 0) {
+                alert('Please enter a valid spend amount greater than 0');
+                return;
+            }
+
+            const cpc = randomInRange(8, 11, 2);
+            const clicks = Math.round(initialSpend / cpc);
+            const ctr = randomInRange(0.4, 0.6, 2);
+            const ctrDecimal = ctr / 100;
+            const impressions = Math.round(clicks / ctrDecimal);
+            const cpm = (initialSpend / impressions) * 1000;
+
+            const deviationPercent = randomInRange(0, 1, 2);
+            const deviationSign = Math.random() < 0.5 ? -1 : 1;
+            const deviation = initialSpend * (deviationPercent / 100) * deviationSign;
+            const finalCost = initialSpend + deviation;
+
+            calculatedData = {
+                cpc: cpc,
+                clicks: clicks,
+                ctr: ctr,
+                impressions: impressions,
+                cpm: cpm,
+                cost: finalCost
+            };
+
+            document.getElementById('cpcValue').textContent = '₹' + cpc.toFixed(2);
+            document.getElementById('clicksValue').textContent = formatNumberWithCommas(clicks);
+            document.getElementById('ctrValue').textContent = ctr.toFixed(2) + '%';
+            document.getElementById('impressionsValue').textContent = formatNumberWithCommas(impressions);
+            document.getElementById('cpmValue').textContent = '₹' + cpm.toFixed(2);
+            document.getElementById('finalCostValue').textContent = '₹' + formatNumberWithCommas(parseFloat(finalCost.toFixed(2))) + ' (' + (deviationSign > 0 ? '+' : '') + (deviationPercent * deviationSign).toFixed(2) + '%)';
+
+            document.getElementById('results').classList.add('show');
+            document.getElementById('downloadBtn').classList.add('show');
+            document.getElementById('downloadDataJsonBtn').classList.add('show');
+        }
+
+        function buildExportJSON() {
+            const now = new Date();
+            const timestamp = now.toISOString();
+            const imageTimestamp = Date.now();
+            return {
+                exportDate: timestamp,
+                version: "1.0",
+                campaign: {
+                    accountId: "208-349-KVZONE",
+                    accountName: "MANAGER API ACCOUNT",
+                    campaignName: "BAAZIGAR111",
+                    adGroupName: "Ad Group 1",
+                    date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    cpc: calculatedData.cpc,
+                    cost: formatNumberWithCommas(parseFloat(calculatedData.cost.toFixed(2))),
+                    ctr: calculatedData.ctr,
+                    cpm: 0,
+                    timestamp: timestamp,
+                    clicks: formatNumberWithCommas(calculatedData.clicks),
+                    impressions: formatNumberWithCommas(calculatedData.impressions),
+                    imagePath: `./images/campaign_image_${imageTimestamp}.jpg`,
+                    imageFilename: `campaign_image_${imageTimestamp}.jpg`
+                }
+            };
+        }
+
+        function downloadJSON() {
+            if (!calculatedData) {
+                alert('Please calculate metrics first');
+                return;
+            }
+            const jsonData = buildExportJSON();
+            const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `campaign_data_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadAsDataJson() {
+            if (!calculatedData) {
+                alert('Please calculate metrics first');
+                return;
+            }
+            const jsonData = buildExportJSON();
+            const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'data.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        document.getElementById('initialSpend').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                calculate();
+            }
+        });
+    </script>
+</body>
+</html>

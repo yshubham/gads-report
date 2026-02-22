@@ -1,0 +1,28 @@
+{
+  "brands": [
+    {
+      "name": "Deal",
+      "logoPath": "brands/deal-1771758388548.png",
+      "active": false,
+      "accountIdPrefix": "727898"
+    },
+    {
+      "name": "Reddy",
+      "logoPath": "brands/reddy-1771758503653.png",
+      "active": true,
+      "accountIdPrefix": "348313"
+    },
+    {
+      "name": "FullHouse",
+      "logoPath": "brands/fullhouse-1771758523972.png",
+      "active": false,
+      "accountIdPrefix": "101278"
+    },
+    {
+      "name": "Trigo",
+      "logoPath": "brands/trigo-1771779428224.png",
+      "active": true,
+      "accountIdPrefix": "701933"
+    }
+  ]
+}

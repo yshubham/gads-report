@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directory — Kelvera G-Ads Reporting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="directory-page">
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/Dashboard.html" class="brand">Kelvera G-Ads Reporting</a>
+            <div class="nav-links">
+                <a href="/Dashboard.html">Dashboard</a>
+                <a href="/AddBrand.html">Add Brand</a>
+                <a href="/Directory.html" class="active">Directory</a>
+                <a href="/Reporting.html">Reporting</a>
+                <a href="/saver.html">Calculator</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <span class="username" id="navUsername">—</span>
+            <a href="/Login.html" class="btn-logout" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+    <main class="main">
+        <h1 class="page-title">Directory</h1>
+        <p class="page-subtitle">Manage brands and toggle visibility in reporting</p>
+        <input type="file" id="replaceLogoInput" accept="image/*" style="display: none;">
+        <div class="container">
+            <div id="loading" class="loading">Loading…</div>
+            <div id="error" class="error-state" style="display: none;"></div>
+            <div id="brandList" class="brand-list" style="display: none;"></div>
+            <div id="empty" class="empty-state" style="display: none;">No brands yet. Add brands from the Add Brand page.</div>
+        </div>
+    </main>
+
+    <script>
+        (function() {
+            var user = sessionStorage.getItem('username');
+            if (!user) { window.location.href = '/Login.html'; return; }
+            document.getElementById('navUsername').textContent = user;
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                sessionStorage.removeItem('username');
+                window.location.href = '/Login.html';
+            });
+        })();
+    </script>
+    <script>
+        var brands = [];
+        var replaceLogoIndex = null;
+
+        document.getElementById('replaceLogoInput').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            e.target.value = '';
+            if (!file || !file.type.startsWith('image/') || replaceLogoIndex === null) return;
+            var idx = replaceLogoIndex;
+            replaceLogoIndex = null;
+            var reader = new FileReader();
+            reader.onload = function() {
+                fetch('/api/brands/logo', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index: idx, logo: reader.result })
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.error) {
+                        document.getElementById('error').textContent = data.error;
+                        document.getElementById('error').style.display = 'block';
+                        return;
+                    }
+                    brands[idx].logoPath = data.logoPath || brands[idx].logoPath;
+                    render();
+                })
+                .catch(function(err) {
+                    document.getElementById('error').textContent = 'Error: ' + err.message;
+                    document.getElementById('error').style.display = 'block';
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function openReplaceLogo(index) {
+            replaceLogoIndex = index;
+            document.getElementById('replaceLogoInput').click();
+        }
+
+        function deleteBrand(index) {
+            fetch('/api/brands', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ index: index })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    document.getElementById('error').textContent = data.error;
+                    document.getElementById('error').style.display = 'block';
+                    return;
+                }
+                brands.splice(index, 1);
+                render();
+            })
+            .catch(function(err) {
+                document.getElementById('error').textContent = 'Error: ' + err.message;
+                document.getElementById('error').style.display = 'block';
+            });
+        }
+
+        function setActive(index, active) {
+            fetch('/api/brands', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ index: index, active: active })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    document.getElementById('error').textContent = data.error;
+                    document.getElementById('error').style.display = 'block';
+                    return;
+                }
+                brands[index].active = active;
+                render();
+            })
+            .catch(function(err) {
+                document.getElementById('error').textContent = 'Error: ' + err.message;
+                document.getElementById('error').style.display = 'block';
+            });
+        }
+
+        function render() {
+            var listEl = document.getElementById('brandList');
+            var emptyEl = document.getElementById('empty');
+            var loadingEl = document.getElementById('loading');
+
+            loadingEl.style.display = 'none';
+
+            if (brands.length === 0) {
+                emptyEl.style.display = 'block';
+                listEl.style.display = 'none';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+            listEl.style.display = 'flex';
+            listEl.innerHTML = '';
+
+            brands.forEach(function(brand, index) {
+                var brandItem = document.createElement('div');
+                brandItem.className = 'brand-item';
+
+                var card = document.createElement('div');
+                card.className = 'dir-card' + (brand.active ? '' : ' archived');
+
+                var deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.title = 'Delete brand';
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (confirm('Delete this brand?')) deleteBrand(index);
+                });
+                card.appendChild(deleteBtn);
+
+                var logoWrap = document.createElement('div');
+                logoWrap.className = 'logo-wrap' + (brand.active ? ' clickable' : '');
+                if (brand.active) {
+                    logoWrap.title = 'Click to replace logo';
+                    logoWrap.addEventListener('click', function() { openReplaceLogo(index); });
+                }
+                var img = document.createElement('img');
+                img.className = 'brand-logo';
+                img.src = '/' + brand.logoPath;
+                img.alt = brand.name;
+                img.onerror = function() { img.style.display = 'none'; };
+                var replaceHint = document.createElement('div');
+                replaceHint.className = 'replace-hint';
+                replaceHint.textContent = 'Click to replace';
+                logoWrap.appendChild(img);
+                logoWrap.appendChild(replaceHint);
+                card.appendChild(logoWrap);
+
+                var nameEl = document.createElement('div');
+                nameEl.className = 'brand-name';
+                nameEl.textContent = brand.name;
+                card.appendChild(nameEl);
+
+                var toggleRow = document.createElement('div');
+                toggleRow.className = 'toggle-row';
+                var label = document.createElement('label');
+                label.className = 'active-toggle ' + (brand.active ? 'active-on' : 'active-off');
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = brand.active;
+                checkbox.addEventListener('change', function() {
+                    setActive(index, checkbox.checked);
+                });
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(brand.active ? 'Active' : 'Archived'));
+                toggleRow.appendChild(label);
+                brandItem.appendChild(card);
+                brandItem.appendChild(toggleRow);
+                listEl.appendChild(brandItem);
+            });
+        }
+
+        fetch('/api/brands')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                document.getElementById('error').style.display = 'none';
+                brands = data.brands || [];
+                render();
+            })
+            .catch(function(err) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = 'Could not load brands: ' + err.message;
+                document.getElementById('error').style.display = 'block';
+            });
+    </script>
+</body>
+</html>

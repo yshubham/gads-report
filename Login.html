@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Kelvera G-Ads Reporting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .login-page {
+            min-height: 100vh;
+            background: var(--color-bg-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-xl);
+            padding: 40px;
+            box-shadow: var(--shadow-card);
+        }
+        .login-card h1 {
+            text-align: center;
+            color: var(--color-text);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 28px;
+            letter-spacing: -0.02em;
+        }
+        .login-card .btn { margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="login-page">
+        <div class="login-card">
+            <h1>Sign in</h1>
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="Enter username" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn" id="loginBtn">Login</button>
+            </form>
+            <div id="errorMsg" class="error-msg"></div>
+        </div>
+    </div>
+
+    <script>
+        function handleLogin(e) {
+            e.preventDefault();
+            var username = document.getElementById('username').value.trim();
+            var password = document.getElementById('password').value;
+            var btn = document.getElementById('loginBtn');
+            var errorEl = document.getElementById('errorMsg');
+
+            errorEl.classList.remove('show');
+            errorEl.textContent = '';
+            btn.disabled = true;
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                btn.disabled = false;
+                if (data.success) {
+                    sessionStorage.setItem('username', username);
+                    window.location.href = '/Dashboard.html';
+                } else {
+                    errorEl.textContent = data.error || 'Invalid username or password';
+                    errorEl.classList.add('show');
+                }
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                errorEl.textContent = 'Login failed. Please try again.';
+                errorEl.classList.add('show');
+            });
+            return false;
+        }
+    </script>
+</body>
+</html>

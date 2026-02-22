@@ -1,0 +1,20 @@
+{
+  "exportDate": "2025-09-12T17:11:56.261Z",
+  "version": "1.0",
+  "campaign": {
+    "accountId": "348-313-KVZONE",
+    "accountName": "MANAGER API ACCOUNT",
+    "campaignName": "Reddy",
+    "adGroupName": "Ad Group 1",
+    "date": "Feb 22, 2026",
+    "cpc": 8.48,
+    "cost": "11,932.8",
+    "ctr": 0.5,
+    "cpm": 0,
+    "timestamp": "2025-09-12T17:11:56.261Z",
+    "clicks": "1,415",
+    "impressions": "2,83,000",
+    "imagePath": "/brands/reddy-1771758503653.png",
+    "imageFilename": "reddy-1771758503653.png"
+  }
+}

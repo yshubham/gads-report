@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Brand — Kelvera G-Ads Reporting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="addbrand-page">
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/Dashboard.html" class="brand">Kelvera G-Ads Reporting</a>
+            <div class="nav-links">
+                <a href="/Dashboard.html">Dashboard</a>
+                <a href="/AddBrand.html" class="active">Add Brand</a>
+                <a href="/Directory.html">Directory</a>
+                <a href="/Reporting.html">Reporting</a>
+                <a href="/saver.html">Calculator</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <span class="username" id="navUsername">—</span>
+            <a href="/Login.html" class="btn-logout" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+    <main class="main">
+        <div class="container">
+            <h1 class="page-title">Add Brand</h1>
+            <form id="addBrandForm" onsubmit="return saveBrand(event)">
+                <div class="input-group">
+                    <label for="brandName">Brand name</label>
+                    <input type="text" id="brandName" name="brandName" placeholder="Enter brand name" required>
+                </div>
+                <div class="input-group">
+                    <label for="logoFile">Logo</label>
+                    <input type="file" id="logoFile" accept="image/*" required>
+                    <div class="logo-preview" id="logoPreview"></div>
+                </div>
+                <button type="submit" class="btn" id="submitBtn">Save Brand</button>
+            </form>
+            <div class="form-status" id="formStatus"></div>
+        </div>
+    </main>
+
+    <script>
+        (function() {
+            var user = sessionStorage.getItem('username');
+            if (!user) { window.location.href = '/Login.html'; return; }
+            document.getElementById('navUsername').textContent = user;
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                sessionStorage.removeItem('username');
+                window.location.href = '/Login.html';
+            });
+        })();
+    </script>
+    <script>
+        var logoDataUrl = null;
+
+        document.getElementById('logoFile').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            var preview = document.getElementById('logoPreview');
+            preview.innerHTML = '';
+            logoDataUrl = null;
+            if (!file || !file.type.startsWith('image/')) return;
+            var reader = new FileReader();
+            reader.onload = function() {
+                logoDataUrl = reader.result;
+                var img = document.createElement('img');
+                img.src = logoDataUrl;
+                img.alt = 'Logo preview';
+                preview.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function showStatus(message, isError) {
+            var el = document.getElementById('formStatus');
+            el.textContent = message;
+            el.className = 'form-status show ' + (isError ? 'error' : 'success');
+        }
+
+        function saveBrand(e) {
+            e.preventDefault();
+            var brandName = document.getElementById('brandName').value.trim();
+            if (!brandName) {
+                showStatus('Please enter a brand name.', true);
+                return false;
+            }
+            if (!logoDataUrl) {
+                showStatus('Please select a logo image.', true);
+                return false;
+            }
+
+            var btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            showStatus('Saving…', false);
+
+            fetch('/api/add-brand', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    brandName: brandName,
+                    logo: logoDataUrl
+                })
+            })
+            .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+            .then(function(result) {
+                btn.disabled = false;
+                if (result.ok) {
+                    showStatus('Brand saved successfully.', false);
+                    document.getElementById('addBrandForm').reset();
+                    document.getElementById('logoPreview').innerHTML = '';
+                    logoDataUrl = null;
+                } else {
+                    showStatus(result.data.error || 'Failed to save brand.', true);
+                }
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                showStatus('Error: ' + err.message, true);
+            });
+            return false;
+        }
+    </script>
+</body>
+</html>

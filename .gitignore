@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.log
+.DS_Store
+
+# Sensitive – do not commit
+credentials.json
+
+# Generated
+screenshots/

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporting — Kelvera G-Ads Reporting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/Dashboard.html" class="brand">Kelvera G-Ads Reporting</a>
+            <div class="nav-links">
+                <a href="/Dashboard.html">Dashboard</a>
+                <a href="/AddBrand.html">Add Brand</a>
+                <a href="/Directory.html">Directory</a>
+                <a href="/Reporting.html" class="active">Reporting</a>
+                <a href="/saver.html">Calculator</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <span class="username" id="navUsername">—</span>
+            <a href="/Login.html" class="btn-logout" id="logoutBtn">Logout</a>
+        </div>
+    </nav>
+    <main class="main report-page">
+        <div class="container">
+            <header class="page-header">
+                <h1 class="page-title">Reporting</h1>
+                <p class="page-subtitle">Set cost, calculate, open report.</p>
+            </header>
+            <div id="error" class="error-state" style="display: none;"></div>
+            <div id="loading" class="loading">Loading…</div>
+            <div id="brandList" class="brand-list" style="display: none;"></div>
+            <div id="empty" class="empty-state" style="display: none;">
+                <div class="empty-title">No active brands</div>
+                <p>Add brands and turn them on in Directory.</p>
+                <div class="empty-links">
+                    <a href="/AddBrand.html">Add Brand</a>
+                    <a href="/Directory.html">Directory</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        (function() {
+            var user = sessionStorage.getItem('username');
+            if (!user) { window.location.href = '/Login.html'; return; }
+            document.getElementById('navUsername').textContent = user;
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                sessionStorage.removeItem('username');
+                window.location.href = '/Login.html';
+            });
+        })();
+    </script>
+    <script>
+        function randomInRange(min, max, decimals) {
+            decimals = decimals === undefined ? 2 : decimals;
+            var value = Math.random() * (max - min) + min;
+            return parseFloat(value.toFixed(decimals));
+        }
+
+        function calculateAndSave(costInput, btn, statusEl, brandName) {
+            var initialSpend = parseFloat(costInput.value);
+            if (isNaN(initialSpend) || initialSpend <= 0) {
+                alert('Please enter a valid cost greater than 0');
+                return;
+            }
+            statusEl.style.display = 'none';
+            statusEl.textContent = '';
+            btn.disabled = true;
+
+            var cpc = randomInRange(8, 11, 2);
+            var clicks = Math.round(initialSpend / cpc);
+            var ctr = randomInRange(0.4, 0.6, 2);
+            var ctrDecimal = ctr / 100;
+            var impressions = Math.round(clicks / ctrDecimal);
+            var deviationPercent = randomInRange(0, 1, 2);
+            var deviationSign = Math.random() < 0.5 ? -1 : 1;
+            var deviation = initialSpend * (deviationPercent / 100) * deviationSign;
+            var finalCost = initialSpend + deviation;
+
+            var body = {
+                clicks: clicks,
+                impressions: impressions,
+                ctr: ctr,
+                cpc: cpc,
+                cost: finalCost
+            };
+            if (brandName) body.brandName = brandName;
+
+            fetch('/api/update-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                btn.disabled = false;
+                if (data.error) {
+                    statusEl.textContent = 'Failed';
+                    statusEl.className = 'row-status failed';
+                    statusEl.style.display = 'inline';
+                    return;
+                }
+                statusEl.textContent = 'Updated';
+                statusEl.className = 'row-status updated';
+                statusEl.style.display = 'inline';
+                setTimeout(function() { statusEl.style.display = 'none'; }, 2000);
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                statusEl.textContent = 'Error';
+                statusEl.className = 'row-status failed';
+                statusEl.style.display = 'inline';
+            });
+        }
+
+        function openReport(cost, brandName, logoPath) {
+            var url = '/final.html';
+            var params = new URLSearchParams();
+            if (cost !== '' && !isNaN(parseFloat(cost))) params.set('cost', cost);
+            if (brandName) params.set('brand', encodeURIComponent(brandName));
+            if (logoPath) params.set('logo', encodeURIComponent(logoPath));
+            if (params.toString()) url += '?' + params.toString();
+            window.open(url, '_blank');
+        }
+
+        function render(brands) {
+            var listEl = document.getElementById('brandList');
+            var emptyEl = document.getElementById('empty');
+            var loadingEl = document.getElementById('loading');
+
+            loadingEl.style.display = 'none';
+
+            var activeBrands = brands.filter(function(b) { return b.active !== false; });
+            if (activeBrands.length === 0) {
+                emptyEl.style.display = 'block';
+                listEl.style.display = 'none';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+            listEl.style.display = 'flex';
+            listEl.innerHTML = '';
+
+            activeBrands.forEach(function(brand) {
+                var row = document.createElement('div');
+                row.className = 'brand-row';
+
+                var cardTop = document.createElement('div');
+                cardTop.className = 'card-top';
+                var logoWrap = document.createElement('div');
+                logoWrap.className = 'brand-logo-wrap';
+                var img = document.createElement('img');
+                img.className = 'brand-logo';
+                img.src = '/' + brand.logoPath;
+                img.alt = brand.name;
+                img.onerror = function() { img.style.display = 'none'; };
+                logoWrap.appendChild(img);
+                var nameEl = document.createElement('div');
+                nameEl.className = 'brand-name';
+                nameEl.textContent = brand.name;
+                cardTop.appendChild(logoWrap);
+                cardTop.appendChild(nameEl);
+
+                var costSection = document.createElement('div');
+                costSection.className = 'cost-section';
+                var costWrap = document.createElement('div');
+                costWrap.className = 'cost-input-wrap';
+                var label = document.createElement('label');
+                label.className = 'label';
+                label.textContent = 'Final cost (₹)';
+                costWrap.appendChild(label);
+                var inputRow = document.createElement('div');
+                inputRow.className = 'input-row';
+                var rupeeSpan = document.createElement('span');
+                rupeeSpan.className = 'rupee';
+                rupeeSpan.textContent = '₹';
+                inputRow.appendChild(rupeeSpan);
+                var costInput = document.createElement('input');
+                costInput.type = 'number';
+                costInput.placeholder = '0.00';
+                costInput.min = '0';
+                costInput.step = '0.01';
+                costInput.setAttribute('data-brand', brand.name);
+                inputRow.appendChild(costInput);
+                costWrap.appendChild(inputRow);
+                costSection.appendChild(costWrap);
+
+                var rowStatus = document.createElement('span');
+                rowStatus.className = 'row-status';
+                rowStatus.style.display = 'none';
+
+                var btnCalc = document.createElement('button');
+                btnCalc.type = 'button';
+                btnCalc.className = 'btn-calc';
+                btnCalc.textContent = 'Calculate';
+                btnCalc.addEventListener('click', function() {
+                    calculateAndSave(costInput, btnCalc, rowStatus, brand.name);
+                });
+
+                var btnOpen = document.createElement('button');
+                btnOpen.type = 'button';
+                btnOpen.className = 'btn-open';
+                btnOpen.textContent = 'Open report';
+                btnOpen.addEventListener('click', function() {
+                    openReport(costInput.value.trim(), brand.name, brand.logoPath);
+                });
+
+                var actionsWrap = document.createElement('div');
+                actionsWrap.className = 'row-actions';
+                actionsWrap.appendChild(btnCalc);
+                actionsWrap.appendChild(rowStatus);
+                actionsWrap.appendChild(btnOpen);
+
+                row.appendChild(cardTop);
+                row.appendChild(costSection);
+                row.appendChild(actionsWrap);
+                listEl.appendChild(row);
+            });
+        }
+
+        fetch('/api/brands')
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                document.getElementById('error').style.display = 'none';
+                render(data.brands || []);
+            })
+            .catch(function(err) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = 'Could not load brands: ' + err.message;
+                document.getElementById('error').style.display = 'block';
+            });
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "gads-report",
+  "version": "1.0.0",
+  "description": "GADS Report - Ad metrics and campaign dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {}
+}
