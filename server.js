@@ -28,7 +28,7 @@ function sendJson(res, statusCode, obj) {
 }
 
 function formatWithCommas(num) {
-  return Number(num).toLocaleString('en-IN');
+  return Number(num).toLocaleString('en-US');
 }
 
 function getYesterdayIST() {
