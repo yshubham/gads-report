@@ -359,22 +359,46 @@
       });
     }
 
-    function loadTodayConversions() {
-      const raw = localStorage.getItem("kelveraDailyConversion");
-      if (!raw) return null;
-      try {
-        const parsed = JSON.parse(raw);
-        const todayKey = getIstDateKey();
-        if (parsed?.dateKey !== todayKey) return null;
-        const conversions = Number(parsed?.conversions);
-        if (!Number.isFinite(conversions) || conversions < 0) return null;
-        return {
-          conversions,
-          updatedAt: parsed?.updatedAt || null,
-        };
-      } catch {
-        return null;
+    async function fetchTodayConversions() {
+      let lastError = null;
+      for (const base of API_BASES) {
+        try {
+          const res = await fetch(`${base}/api/conversions`, {
+            method: "GET",
+            mode: "cors",
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            return {
+              ok: false,
+              message: data.error || `Request failed (${res.status})`,
+            };
+          }
+          const todayKey = getIstDateKey();
+          if (data.dateKey !== todayKey) {
+            return { ok: true, data: null };
+          }
+          const conversions = Number(data.conversions);
+          if (!Number.isFinite(conversions) || conversions < 0) {
+            return { ok: true, data: null };
+          }
+          return {
+            ok: true,
+            data: {
+              conversions: Math.floor(conversions),
+              updatedAt: data.updatedAt || null,
+            },
+          };
+        } catch {
+          lastError = `Could not reach ${base}`;
+        }
       }
+      return {
+        ok: false,
+        message:
+          lastError ||
+          "Network/CORS error. Check that the API is deployed and reachable.",
+      };
     }
 
     function getStakeClicks(groupData) {
@@ -385,12 +409,13 @@
     }
 
     async function refreshConversionMetric() {
-      const conversionData = loadTodayConversions();
-      if (!conversionData) {
+      const conversionRes = await fetchTodayConversions();
+      if (!conversionRes.ok || !conversionRes.data) {
         conversionRate.textContent = "Conversion %: --";
         lastUpdated.textContent = "Last updated (IST): --";
         return;
       }
+      const conversionData = conversionRes.data;
 
       const stakeReport = await tryFetchReport(STAKE_REPORT_SLUG);
       if (!stakeReport.ok || !stakeReport.data) {
