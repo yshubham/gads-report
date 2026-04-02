@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kelvera Daily Conversion Input</title>
+  <style>
+    :root {
+      --bg: #f4fbf5;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-strong: #ffffff;
+      --text: #173227;
+      --muted: #5f7b6a;
+      --accent: #78b88a;
+      --accent-deep: #4e8b61;
+      --line: #d6e8d8;
+      --shadow: 0 20px 50px rgba(69, 113, 83, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(162, 212, 175, 0.4), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(203, 235, 207, 0.85), transparent 28%),
+        linear-gradient(180deg, #eff9f0 0%, #e7f5e9 100%);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(960px, 100%);
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+    }
+
+    .hero,
+    .form-panel {
+      padding: 40px;
+    }
+
+    .hero {
+      background: linear-gradient(145deg, rgba(120, 184, 138, 0.14), rgba(255, 255, 255, 0.65));
+      border-right: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(120, 184, 138, 0.15);
+      color: var(--accent-deep);
+      font-size: 0.84rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 1.02;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.02rem;
+      line-height: 1.7;
+      max-width: 42ch;
+    }
+
+    .today-date {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f7fcf7;
+      color: var(--accent-deep);
+      font-weight: 700;
+    }
+
+    .form-panel {
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 1.1rem;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fcfffc;
+      color: var(--text);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font: inherit;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(120, 184, 138, 0.16);
+      transform: translateY(-1px);
+    }
+
+    button {
+      margin-top: 4px;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 16px;
+      font: inherit;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #78b88a 0%, #4e8b61 100%);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+      box-shadow: 0 10px 24px rgba(78, 139, 97, 0.28);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .msg {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #f7fcf7;
+      color: var(--muted);
+      font-size: 0.93rem;
+      display: none;
+    }
+
+    .msg.show {
+      display: block;
+    }
+
+    @media (max-width: 760px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .hero,
+      .form-panel {
+        padding: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <section class="layout">
+      <div class="hero">
+        <div class="eyebrow">Daily Entry</div>
+        <h1>Kelvera Conversion Tracker</h1>
+        <p class="lead">Enter today's conversion count for billing and reporting workflows.</p>
+        <div class="today-date" id="todayDate">Today:</div>
+      </div>
+
+      <div class="form-panel">
+        <h2>Conversion Input</h2>
+        <form id="conversionForm" class="form-grid">
+          <label for="conversionsInput">
+            Today's Conversions
+            <input
+              id="conversionsInput"
+              type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              placeholder="Enter today's conversions"
+              required
+            >
+          </label>
+          <button type="submit">Save</button>
+        </form>
+        <div id="message" class="msg"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const todayDate = document.getElementById("todayDate");
+    const form = document.getElementById("conversionForm");
+    const input = document.getElementById("conversionsInput");
+    const message = document.getElementById("message");
+
+    function getIstDateKey(date = new Date()) {
+      const dt = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, "0");
+      const d = String(dt.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatIstDate(date = new Date()) {
+      return date.toLocaleDateString("en-IN", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "Asia/Kolkata",
+      });
+    }
+
+    const formatted = formatIstDate();
+    const todayKey = getIstDateKey();
+
+    todayDate.textContent = `Today: ${formatted}`;
+
+    input.addEventListener("input", () => {
+      input.value = input.value.replace(/\D/g, "");
+    });
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const value = Number(input.value);
+      const safeValue = Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+
+      const payload = {
+        dateKey: todayKey,
+        conversions: safeValue,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem("kelveraDailyConversion", JSON.stringify(payload));
+
+      const updatedAtIst = new Date(payload.updatedAt).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+      });
+
+      message.textContent = `Saved ${safeValue} conversions for ${formatted}. Last updated: ${updatedAtIst} IST.`;
+      message.classList.add("show");
+    });
+  </script>
+</body>
+</html>

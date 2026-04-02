@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kelvera Solution Reports</title>
+  <title>Kelvera Group Click Reports</title>
   <style>
     :root {
       --bg: #f4fbf5;
@@ -84,6 +84,31 @@
       font-size: 1.02rem;
       line-height: 1.7;
       max-width: 42ch;
+    }
+
+    .meta-box {
+      margin-top: 8px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #f7fcf7;
+      display: grid;
+      gap: 6px;
+    }
+
+    .meta-date {
+      font-weight: 700;
+      color: var(--accent-deep);
+    }
+
+    .meta-kpi {
+      font-size: 1rem;
+      color: var(--text);
+    }
+
+    .meta-muted {
+      font-size: 0.9rem;
+      color: var(--muted);
     }
 
     .calculator {
@@ -254,17 +279,18 @@
       <div class="hero">
         <div class="eyebrow">Reporting</div>
         <h1>Kelvera Group Click Reports</h1>
-        <p class="lead">
-          Enter an exact <code>/pro/{slug}</code> value to pull grouped click data for the current IST day.
-        </p>
+        <div class="meta-box">
+          <div class="meta-date" id="todayDate">Today:</div>
+          <div class="meta-kpi" id="conversionRate">Conversion %: --</div>
+          <div class="meta-muted" id="lastUpdated">Last updated (IST): --</div>
+        </div>
       </div>
 
       <div class="calculator">
         <h2>Report Input</h2>
         <form id="reportForm" class="form-grid">
           <label for="slugInput">
-            Pro Slug
-            <input id="slugInput" type="text" placeholder="Enter slug exactly">
+            <input id="slugInput" type="text" placeholder="campaign name">
           </label>
           <button id="submitBtn" type="submit">Get Report</button>
         </form>
@@ -283,6 +309,10 @@
     const submitBtn = document.getElementById("submitBtn");
     const message = document.getElementById("message");
     const results = document.getElementById("results");
+    const todayDate = document.getElementById("todayDate");
+    const conversionRate = document.getElementById("conversionRate");
+    const lastUpdated = document.getElementById("lastUpdated");
+    const STAKE_REPORT_SLUG = "ipl2026";
 
     function showMessage(text, kind) {
       message.className = `msg ${kind}`;
@@ -296,6 +326,83 @@
 
     function clearResults() {
       results.innerHTML = "";
+    }
+
+    function getIstDateKey(date = new Date()) {
+      const dt = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, "0");
+      const d = String(dt.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatIstDate(date = new Date()) {
+      return date.toLocaleDateString("en-IN", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "Asia/Kolkata",
+      });
+    }
+
+    function formatIstTime(iso) {
+      if (!iso) return "--";
+      const dt = new Date(iso);
+      if (Number.isNaN(dt.getTime())) return "--";
+      return dt.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+      });
+    }
+
+    function loadTodayConversions() {
+      const raw = localStorage.getItem("kelveraDailyConversion");
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        const todayKey = getIstDateKey();
+        if (parsed?.dateKey !== todayKey) return null;
+        const conversions = Number(parsed?.conversions);
+        if (!Number.isFinite(conversions) || conversions < 0) return null;
+        return {
+          conversions,
+          updatedAt: parsed?.updatedAt || null,
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    function getStakeClicks(groupData) {
+      if (!Array.isArray(groupData)) return 0;
+      const stakeRow = groupData.find((row) => String(row.group || "").trim().toLowerCase() === "stake");
+      const clicks = Number(stakeRow?.clicks ?? 0);
+      return Number.isFinite(clicks) && clicks > 0 ? clicks : 0;
+    }
+
+    async function refreshConversionMetric() {
+      const conversionData = loadTodayConversions();
+      if (!conversionData) {
+        conversionRate.textContent = "Conversion %: --";
+        lastUpdated.textContent = "Last updated (IST): --";
+        return;
+      }
+
+      const stakeReport = await tryFetchReport(STAKE_REPORT_SLUG);
+      if (!stakeReport.ok || !stakeReport.data) {
+        conversionRate.textContent = "Conversion %: --";
+        lastUpdated.textContent = `Last updated (IST): ${formatIstTime(conversionData.updatedAt)}`;
+        return;
+      }
+
+      const stakeClicks = getStakeClicks(stakeReport.data.groupData);
+      const rate = stakeClicks > 0 ? conversionData.conversions / stakeClicks : 0;
+      conversionRate.textContent = `Conversion %: ${rate.toFixed(4)}`;
+      lastUpdated.textContent = `Last updated (IST): ${formatIstTime(conversionData.updatedAt)}`;
     }
 
     function renderResults(data) {
@@ -372,6 +479,9 @@
       };
     }
 
+    todayDate.textContent = `Today: ${formatIstDate()}`;
+    void refreshConversionMetric();
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       clearMessage();
@@ -395,6 +505,7 @@
 
         showMessage("Report loaded successfully.", "success");
         renderResults(out.data);
+        await refreshConversionMetric();
       } catch {
         showMessage("Unexpected error while loading report.", "error");
       } finally {
