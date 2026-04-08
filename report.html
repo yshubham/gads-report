@@ -6,6 +6,58 @@
   <title>Kelvera Group Click Reports</title>
     <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/css/report-billing.css">
+  <style>
+    #results {
+      margin-top: 18px;
+    }
+
+    #results .result {
+      margin-top: 24px;
+      padding: 28px;
+      border-radius: 24px;
+    }
+
+    #results .total {
+      margin: 10px 0 20px;
+    }
+
+    #results table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    #results thead th {
+      padding: 12px 14px;
+      background: #f6fbf6;
+      font-weight: 700;
+    }
+
+    #results tbody td {
+      padding: 12px 14px;
+      border-top: 1px solid var(--color-border);
+    }
+
+    #results th.right,
+    #results td.right {
+      text-align: right;
+    }
+
+    @media (max-width: 760px) {
+      #results .result {
+        padding: 20px;
+        border-radius: 18px;
+      }
+      #results thead th,
+      #results tbody td {
+        padding: 10px 10px;
+      }
+    }
+  </style>
 
 </head>
 <body>
@@ -52,6 +104,12 @@
     const conversionRate = document.getElementById("conversionRate");
     const lastUpdated = document.getElementById("lastUpdated");
     const STAKE_REPORT_SLUG = "ipl2026";
+    let conversionCache = {
+      dateKey: null,
+      marker: null,
+      rate: null,
+      updatedAt: null,
+    };
 
     function showMessage(text, kind) {
       message.className = `msg ${kind}`;
@@ -160,6 +218,19 @@
         return;
       }
       const conversionData = conversionRes.data;
+      const marker = conversionData.updatedAt
+        ? String(conversionData.updatedAt)
+        : `${dateKey}:${conversionData.conversions}`;
+
+      if (
+        conversionCache.dateKey === dateKey &&
+        conversionCache.marker === marker &&
+        conversionCache.rate !== null
+      ) {
+        conversionRate.textContent = `Conversion %: ${Number(conversionCache.rate).toFixed(4)}`;
+        lastUpdated.textContent = `Last updated (IST): ${formatIstTime(conversionCache.updatedAt)}`;
+        return;
+      }
 
       const stakeReport = await tryFetchReport(STAKE_REPORT_SLUG, dateKey);
       if (!stakeReport.ok || !stakeReport.data) {
@@ -172,6 +243,12 @@
       const rate = stakeClicks > 0 ? conversionData.conversions / stakeClicks : 0;
       conversionRate.textContent = `Conversion %: ${rate.toFixed(4)}`;
       lastUpdated.textContent = `Last updated (IST): ${formatIstTime(conversionData.updatedAt)}`;
+      conversionCache = {
+        dateKey,
+        marker,
+        rate,
+        updatedAt: conversionData.updatedAt || null,
+      };
     }
 
     function renderResults(data) {
