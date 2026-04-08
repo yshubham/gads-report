@@ -74,6 +74,14 @@
     <script src="/js/internal-nav.js"></script>
     <script src="/js/internal-user-menu.js"></script>
     <script>
+        function normalizeLogoSrc(logoPath) {
+            if (!logoPath) return '';
+            var s = String(logoPath).trim();
+            if (!s) return '';
+            if (/^https?:\/\//i.test(s) || s.startsWith('/')) return s;
+            return '/' + s.replace(/^\/+/, '');
+        }
+
         function randomInRange(min, max, decimals) {
             decimals = decimals === undefined ? 2 : decimals;
             var value = Math.random() * (max - min) + min;
@@ -174,7 +182,7 @@
                 logoWrap.className = 'brand-logo-wrap';
                 var img = document.createElement('img');
                 img.className = 'brand-logo';
-                img.src = '/' + brand.logoPath;
+                img.src = normalizeLogoSrc(brand.logoPath);
                 img.alt = brand.name;
                 img.onerror = function() { img.style.display = 'none'; };
                 logoWrap.appendChild(img);

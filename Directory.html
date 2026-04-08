@@ -70,6 +70,14 @@
         var isAdminBrands = false;
         var replaceLogoTarget = null;
 
+        function normalizeLogoSrc(logoPath) {
+            if (!logoPath) return '';
+            var s = String(logoPath).trim();
+            if (!s) return '';
+            if (/^https?:\/\//i.test(s) || s.startsWith('/')) return s;
+            return '/' + s.replace(/^\/+/, '');
+        }
+
         document.getElementById('replaceLogoInput').addEventListener('change', function(e) {
             var file = e.target.files[0];
             e.target.value = '';
@@ -209,7 +217,7 @@
                 }
                 var img = document.createElement('img');
                 img.className = 'brand-logo';
-                img.src = '/' + brand.logoPath;
+                img.src = normalizeLogoSrc(brand.logoPath);
                 img.alt = brand.name;
                 img.onerror = function() { img.style.display = 'none'; };
                 var replaceHint = document.createElement('div');
