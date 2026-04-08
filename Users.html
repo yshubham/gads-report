@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team — Kelvera G-Ads Reporting</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .team-page-layout { display: block; margin-top: 8px; }
+        .team-page-layout .team-form-col {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 28px;
+            text-align: center;
+        }
+        .team-page-layout .team-form-col .input-group label { text-align: left; }
+        .team-roster-col { width: 100%; }
+        .team-roster-col h2 { font-size: 1rem; font-weight: 600; margin: 0 0 14px; color: var(--color-text); }
+        .team-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
+        .team-table th, .team-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--color-border); }
+        .team-table th { color: var(--color-text-muted); font-weight: 600; font-size: 0.8125rem; }
+        .team-table td.team-count { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+        .team-table td.team-actions { text-align: right; white-space: nowrap; }
+        .team-remove-btn {
+            padding: 6px 12px; font-size: 0.8125rem; font-weight: 600;
+            border-radius: var(--radius-md, 8px); cursor: pointer;
+            border: 1px solid rgba(239, 68, 68, 0.5); background: transparent;
+            color: #f87171;
+        }
+        .team-remove-btn:hover:not(:disabled) {
+            background: rgba(239, 68, 68, 0.12); border-color: #f87171;
+        }
+        .team-remove-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    </style>
+</head>
+<body class="directory-page">
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
+            <div class="nav-links">
+                <a href="/Dashboard.html" data-internal-home>Dashboard</a>
+                <a href="/AddBrand.html">Add Brand</a>
+                <a href="/Directory.html">Directory</a>
+                <a href="/Reporting.html">Reporting</a>
+                <a href="/Users.html" class="active">Team</a>
+                <a href="/saver.html">Calculator</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <div class="nav-user-menu" id="navUserMenu">
+                <button type="button" class="nav-user-trigger" id="navUserTrigger" aria-expanded="false" aria-haspopup="true">
+                    <span class="username nav-user-name" id="navUsername">—</span>
+                    <span class="nav-user-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="nav-user-dropdown" id="navUserDropdown" role="menu" hidden>
+                    <div class="nav-dropdown-section">
+                        <div class="nav-dropdown-heading">Change password</div>
+                        <form id="navPwdForm" class="nav-pwd-form">
+                            <input type="password" id="navCurrentPwd" required autocomplete="current-password" placeholder="Current password" class="nav-pwd-input">
+                            <input type="password" id="navNewPwd" required minlength="8" autocomplete="new-password" placeholder="New password (min. 8)" class="nav-pwd-input">
+                            <button type="submit" class="btn btn-nav-pwd" id="navPwdSubmit">Update password</button>
+                        </form>
+                        <div id="navPwdStatus" class="form-status nav-pwd-status"></div>
+                    </div>
+                    <div class="nav-dropdown-divider"></div>
+                    <button type="button" class="nav-dropdown-logout" id="logoutBtn">Log out</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <main class="main">
+        <div class="container">
+            <h1 class="page-title">Team</h1>
+            <p class="page-subtitle">Add internal users. Each user gets a separate workspace.</p>
+            <div id="forbidden" class="form-status error" style="display: none;"></div>
+            <div id="adminTeamBlock" class="team-page-layout" style="display: none;">
+                <div class="team-form-col">
+                    <form id="userForm" onsubmit="return addUser(event)">
+                        <div class="input-group">
+                            <label for="newUsername">Username</label>
+                            <input type="text" id="newUsername" required autocomplete="username" placeholder="New user">
+                        </div>
+                        <div class="input-group">
+                            <label for="newPassword">Password</label>
+                            <input type="password" id="newPassword" required minlength="8" autocomplete="new-password" placeholder="Min. 8 characters">
+                        </div>
+                        <button type="submit" class="btn" id="submitBtn">Create user</button>
+                    </form>
+                    <div class="form-status" id="formStatus"></div>
+                </div>
+                <div class="team-roster-col">
+                    <h2>Internal users</h2>
+                    <p class="page-subtitle" style="margin: -8px 0 16px;">Active brands = brands marked active in Directory for that user&rsquo;s workspace.</p>
+                    <div id="teamLoading" class="loading">Loading…</div>
+                    <table id="teamTable" class="team-table" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Role</th>
+                                <th style="text-align: right;">Active brands</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teamTableBody"></tbody>
+                    </table>
+                    <div id="teamEmpty" class="empty-state" style="display: none; padding: 24px 0;">No internal users yet.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script>
+        (function() {
+            var user = sessionStorage.getItem('username');
+            if (!user) { window.location.href = '/Login.html'; return; }
+            document.getElementById('navUsername').textContent = user;
+        })();
+    </script>
+    <script src="/js/internal-nav.js"></script>
+    <script src="/js/internal-user-menu.js"></script>
+    <script>
+        var currentUserId = null;
+
+        function loadTeamRoster() {
+            var loadingEl = document.getElementById('teamLoading');
+            var tableEl = document.getElementById('teamTable');
+            var bodyEl = document.getElementById('teamTableBody');
+            var emptyEl = document.getElementById('teamEmpty');
+            loadingEl.style.display = 'block';
+            tableEl.style.display = 'none';
+            emptyEl.style.display = 'none';
+            fetch('/api/admin/team', { credentials: 'include' })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    loadingEl.style.display = 'none';
+                    if (data.error) {
+                        emptyEl.textContent = data.error;
+                        emptyEl.style.display = 'block';
+                        return;
+                    }
+                    var members = data.members || [];
+                    if (members.length === 0) {
+                        emptyEl.textContent = 'No internal users yet.';
+                        emptyEl.style.display = 'block';
+                        return;
+                    }
+                    bodyEl.innerHTML = '';
+                    members.forEach(function(m) {
+                        var tr = document.createElement('tr');
+                        var tdUser = document.createElement('td');
+                        tdUser.textContent = m.username;
+                        var tdRole = document.createElement('td');
+                        tdRole.textContent = m.role || 'user';
+                        var tdCount = document.createElement('td');
+                        tdCount.className = 'team-count';
+                        tdCount.textContent = String(m.activeBrandCount != null ? m.activeBrandCount : 0);
+                        var tdActions = document.createElement('td');
+                        tdActions.className = 'team-actions';
+                        var isSelf = currentUserId && m.id === currentUserId;
+                        var removeBtn = document.createElement('button');
+                        removeBtn.type = 'button';
+                        removeBtn.className = 'team-remove-btn';
+                        removeBtn.textContent = 'Remove';
+                        if (isSelf) {
+                            removeBtn.disabled = true;
+                            removeBtn.title = 'You cannot remove your own account';
+                        } else {
+                            removeBtn.addEventListener('click', function() {
+                                removeTeamMember(m.id, m.username, removeBtn);
+                            });
+                        }
+                        tdActions.appendChild(removeBtn);
+                        tr.appendChild(tdUser);
+                        tr.appendChild(tdRole);
+                        tr.appendChild(tdCount);
+                        tr.appendChild(tdActions);
+                        bodyEl.appendChild(tr);
+                    });
+                    tableEl.style.display = 'table';
+                })
+                .catch(function() {
+                    loadingEl.style.display = 'none';
+                    emptyEl.textContent = 'Could not load team list.';
+                    emptyEl.style.display = 'block';
+                });
+        }
+
+        function removeTeamMember(userId, username, btn) {
+            if (!confirm('Remove user "' + username + '"? Their workspace and all brands (and client logins for those brands) will be permanently deleted.')) {
+                return;
+            }
+            btn.disabled = true;
+            fetch('/api/internal-users', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ userId: userId })
+            })
+            .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+            .then(function(result) {
+                btn.disabled = false;
+                if (result.ok && result.data.success) {
+                    showStatus('User removed.', false);
+                    loadTeamRoster();
+                } else {
+                    showStatus((result.data && result.data.error) || 'Could not remove user', true);
+                }
+            })
+            .catch(function() {
+                btn.disabled = false;
+                showStatus('Request failed.', true);
+            });
+        }
+
+        fetch('/api/me', { credentials: 'include' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data.authenticated) {
+                    window.location.href = '/Login.html';
+                    return;
+                }
+                currentUserId = data.userId || null;
+                if (data.role !== 'admin') {
+                    window.location.href = '/Dashboard.html';
+                    return;
+                }
+                document.getElementById('adminTeamBlock').style.display = 'block';
+                loadTeamRoster();
+            });
+
+        function showStatus(msg, isError) {
+            var el = document.getElementById('formStatus');
+            el.textContent = msg;
+            el.className = 'form-status show ' + (isError ? 'error' : 'success');
+        }
+
+        function addUser(e) {
+            e.preventDefault();
+            var username = document.getElementById('newUsername').value.trim();
+            var password = document.getElementById('newPassword').value;
+            var btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            showStatus('Creating…', false);
+            fetch('/api/internal-users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ username: username, password: password })
+            })
+            .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+            .then(function(result) {
+                btn.disabled = false;
+                if (result.ok) {
+                    showStatus('User created with their own workspace.', false);
+                    document.getElementById('userForm').reset();
+                    loadTeamRoster();
+                } else {
+                    showStatus((result.data && result.data.error) || 'Failed to create user', true);
+                }
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                showStatus(err.message || 'Error', true);
+            });
+            return false;
+        }
+    </script>
+    <div data-shared-footer></div>
+    <script src="/js/layout-shell.js"></script>
+</body>
+</html>

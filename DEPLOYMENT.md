@@ -12,7 +12,7 @@ This guide walks you through putting the app on a DigitalOcean droplet and keepi
 4. **Install Node 20:** `apt update && apt upgrade -y && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt install -y nodejs`
 5. **Clone your repo:** `cd ~ && git clone https://github.com/YOUR_USERNAME/gads-report.git && cd gads-report`
 6. **Install dependencies (incl. Puppeteer):** `npm install`
-7. **Create credentials on server:** `nano credentials.json` and add your login users (see §3.1 below).
+7. **Create `.env` on server:** set `MONGODB_URI`, `SESSION_SECRET`, and initial admin vars (see §3.1 below).
 8. **Run with PM2:** `npm install -g pm2 && pm2 start server.js --name gads-report && pm2 save && pm2 startup` (run the `sudo env PATH=...` command it prints).
 9. **Nginx + HTTPS:** Follow **§7 and §8** so the site is on **https://yourdomain.com** (no port). Firewall: `sudo ufw allow 22 && sudo ufw allow 80 && sudo ufw allow 443 && sudo ufw enable` (do **not** open port 3000 to the internet.)
 10. **Visit:** `https://yourdomain.com/Login.html`
@@ -110,23 +110,24 @@ cd gads-report
 
 ---
 
-## 3.1 Create credentials on the server (required for login)
+## 3.1 Create `.env` on the server (required for secure login)
 
-`credentials.json` is not in the repo. Create it on the droplet:
+Create `.env` in the app directory:
 
 ```bash
 cd ~/gads-report
-nano credentials.json
+nano .env
 ```
 
-Paste (change username/password as you like):
+Paste and update values:
 
-```json
-{
-  "users": [
-    { "username": "admin", "password": "your-secure-password" }
-  ]
-}
+```bash
+MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster.example.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB=gads_report
+SESSION_SECRET=replace-with-a-long-random-secret
+INITIAL_ADMIN_USERNAME=admin
+INITIAL_ADMIN_PASSWORD=replace-with-a-strong-password
+ALLOW_LEGACY_FILE_AUTH=false
 ```
 
 Save: `Ctrl+X`, then `Y`, then `Enter`.
@@ -156,7 +157,7 @@ Then:
 PORT=3000 node server.js
 ```
 
-Visit `http://YOUR_DROPLET_IP:3000/Login.html`. Log in with the user from `credentials.json` (create it if missing — see §3.1). You should see the Dashboard.
+Visit `http://YOUR_DROPLET_IP:3000/Login.html`. Log in with the admin user from `.env` bootstrap values (see §3.1). You should see the Dashboard.
 
 Stop the server with `Ctrl+C` when you’re done testing.
 
@@ -321,3 +322,9 @@ When you click **Open report** on the Reporting page, the server takes a full-pa
 | Open firewall     | `sudo ufw allow 80 && sudo ufw allow 443` (do not open 3000; use Nginx + HTTPS) |
 
 Your app is a **Node application** that serves `final.html`, `saver.html`, `data.json`, and the `icons/` folder. No database or env vars are required for this basic setup.
+
+## Security notes
+
+- Rotate any old plaintext passwords that were ever stored in `credentials.json`.
+- Rotate `SESSION_SECRET` if it was missing or defaulted at any point.
+- Keep `ALLOW_LEGACY_FILE_AUTH=false` in deployed environments.

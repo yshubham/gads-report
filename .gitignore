@@ -1,9 +1,13 @@
 node_modules/
 .env
+.env.local
+.env.*.local
 *.log
 .DS_Store
 
 # Sensitive – do not commit
+credentials.json
+credentials.*.json
 
 # Generated
 screenshots/

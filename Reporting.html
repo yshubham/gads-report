@@ -12,18 +12,36 @@
 <body>
     <nav class="navbar">
         <div class="nav-left">
-            <a href="/Dashboard.html" class="brand">Kelvera G-Ads Reporting</a>
+            <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
             <div class="nav-links">
-                <a href="/Dashboard.html">Dashboard</a>
+                <a href="/Dashboard.html" data-internal-home>Dashboard</a>
                 <a href="/AddBrand.html">Add Brand</a>
                 <a href="/Directory.html">Directory</a>
                 <a href="/Reporting.html" class="active">Reporting</a>
+                <a href="/Users.html" data-nav-admin-only>Team</a>
                 <a href="/saver.html">Calculator</a>
             </div>
         </div>
         <div class="nav-right">
-            <span class="username" id="navUsername">—</span>
-            <a href="/Login.html" class="btn-logout" id="logoutBtn">Logout</a>
+            <div class="nav-user-menu" id="navUserMenu">
+                <button type="button" class="nav-user-trigger" id="navUserTrigger" aria-expanded="false" aria-haspopup="true">
+                    <span class="username nav-user-name" id="navUsername">—</span>
+                    <span class="nav-user-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="nav-user-dropdown" id="navUserDropdown" role="menu" hidden>
+                    <div class="nav-dropdown-section">
+                        <div class="nav-dropdown-heading">Change password</div>
+                        <form id="navPwdForm" class="nav-pwd-form">
+                            <input type="password" id="navCurrentPwd" required autocomplete="current-password" placeholder="Current password" class="nav-pwd-input">
+                            <input type="password" id="navNewPwd" required minlength="8" autocomplete="new-password" placeholder="New password (min. 8)" class="nav-pwd-input">
+                            <button type="submit" class="btn btn-nav-pwd" id="navPwdSubmit">Update password</button>
+                        </form>
+                        <div id="navPwdStatus" class="form-status nav-pwd-status"></div>
+                    </div>
+                    <div class="nav-dropdown-divider"></div>
+                    <button type="button" class="nav-dropdown-logout" id="logoutBtn">Log out</button>
+                </div>
+            </div>
         </div>
     </nav>
     <main class="main report-page">
@@ -51,13 +69,10 @@
             var user = sessionStorage.getItem('username');
             if (!user) { window.location.href = '/Login.html'; return; }
             document.getElementById('navUsername').textContent = user;
-            document.getElementById('logoutBtn').addEventListener('click', function(e) {
-                e.preventDefault();
-                sessionStorage.removeItem('username');
-                window.location.href = '/Login.html';
-            });
         })();
     </script>
+    <script src="/js/internal-nav.js"></script>
+    <script src="/js/internal-user-menu.js"></script>
     <script>
         function randomInRange(min, max, decimals) {
             decimals = decimals === undefined ? 2 : decimals;
@@ -146,7 +161,7 @@
             }
 
             emptyEl.style.display = 'none';
-            listEl.style.display = 'flex';
+            listEl.style.display = 'grid';
             listEl.innerHTML = '';
 
             activeBrands.forEach(function(brand) {
@@ -226,17 +241,24 @@
             });
         }
 
-        fetch('/api/brands')
-            .then(function(res) { return res.json(); })
+        fetch('/api/brands', { credentials: 'include' })
+            .then(function(res) {
+                if (res.status === 401) { window.location.href = '/Login.html'; return Promise.reject(new Error('auth')); }
+                return res.json();
+            })
             .then(function(data) {
+                if (!data || data.error) return;
                 document.getElementById('error').style.display = 'none';
                 render(data.brands || []);
             })
             .catch(function(err) {
+                if (err && err.message === 'auth') return;
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('error').textContent = 'Could not load brands: ' + err.message;
+                document.getElementById('error').textContent = 'Could not load brands: ' + (err && err.message ? err.message : 'unknown');
                 document.getElementById('error').style.display = 'block';
             });
     </script>
+    <div data-shared-footer></div>
+    <script src="/js/layout-shell.js"></script>
 </body>
 </html>

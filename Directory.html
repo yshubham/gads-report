@@ -12,23 +12,41 @@
 <body class="directory-page">
     <nav class="navbar">
         <div class="nav-left">
-            <a href="/Dashboard.html" class="brand">Kelvera G-Ads Reporting</a>
+            <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
             <div class="nav-links">
-                <a href="/Dashboard.html">Dashboard</a>
+                <a href="/Dashboard.html" data-internal-home>Dashboard</a>
                 <a href="/AddBrand.html">Add Brand</a>
                 <a href="/Directory.html" class="active">Directory</a>
                 <a href="/Reporting.html">Reporting</a>
+                <a href="/Users.html" data-nav-admin-only>Team</a>
                 <a href="/saver.html">Calculator</a>
             </div>
         </div>
         <div class="nav-right">
-            <span class="username" id="navUsername">—</span>
-            <a href="/Login.html" class="btn-logout" id="logoutBtn">Logout</a>
+            <div class="nav-user-menu" id="navUserMenu">
+                <button type="button" class="nav-user-trigger" id="navUserTrigger" aria-expanded="false" aria-haspopup="true">
+                    <span class="username nav-user-name" id="navUsername">—</span>
+                    <span class="nav-user-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="nav-user-dropdown" id="navUserDropdown" role="menu" hidden>
+                    <div class="nav-dropdown-section">
+                        <div class="nav-dropdown-heading">Change password</div>
+                        <form id="navPwdForm" class="nav-pwd-form">
+                            <input type="password" id="navCurrentPwd" required autocomplete="current-password" placeholder="Current password" class="nav-pwd-input">
+                            <input type="password" id="navNewPwd" required minlength="8" autocomplete="new-password" placeholder="New password (min. 8)" class="nav-pwd-input">
+                            <button type="submit" class="btn btn-nav-pwd" id="navPwdSubmit">Update password</button>
+                        </form>
+                        <div id="navPwdStatus" class="form-status nav-pwd-status"></div>
+                    </div>
+                    <div class="nav-dropdown-divider"></div>
+                    <button type="button" class="nav-dropdown-logout" id="logoutBtn">Log out</button>
+                </div>
+            </div>
         </div>
     </nav>
     <main class="main">
         <h1 class="page-title">Directory</h1>
-        <p class="page-subtitle">Manage brands and toggle visibility in reporting</p>
+        <p class="page-subtitle" id="dirSubtitle">Manage brands and toggle visibility in reporting</p>
         <input type="file" id="replaceLogoInput" accept="image/*" style="display: none;">
         <div class="container">
             <div id="loading" class="loading">Loading…</div>
@@ -43,29 +61,31 @@
             var user = sessionStorage.getItem('username');
             if (!user) { window.location.href = '/Login.html'; return; }
             document.getElementById('navUsername').textContent = user;
-            document.getElementById('logoutBtn').addEventListener('click', function(e) {
-                e.preventDefault();
-                sessionStorage.removeItem('username');
-                window.location.href = '/Login.html';
-            });
         })();
     </script>
+    <script src="/js/internal-nav.js"></script>
+    <script src="/js/internal-user-menu.js"></script>
     <script>
         var brands = [];
-        var replaceLogoIndex = null;
+        var isAdminBrands = false;
+        var replaceLogoTarget = null;
 
         document.getElementById('replaceLogoInput').addEventListener('change', function(e) {
             var file = e.target.files[0];
             e.target.value = '';
-            if (!file || !file.type.startsWith('image/') || replaceLogoIndex === null) return;
-            var idx = replaceLogoIndex;
-            replaceLogoIndex = null;
+            if (!file || !file.type.startsWith('image/') || replaceLogoTarget === null) return;
+            var target = replaceLogoTarget;
+            replaceLogoTarget = null;
             var reader = new FileReader();
             reader.onload = function() {
+                var body = target.brandId
+                    ? { brandId: target.brandId, logo: reader.result }
+                    : { index: target.index, logo: reader.result };
                 fetch('/api/brands/logo', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ index: idx, logo: reader.result })
+                    credentials: 'include',
+                    body: JSON.stringify(body)
                 })
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
@@ -74,6 +94,7 @@
                         document.getElementById('error').style.display = 'block';
                         return;
                     }
+                    var idx = target.listIndex;
                     brands[idx].logoPath = data.logoPath || brands[idx].logoPath;
                     render();
                 })
@@ -86,15 +107,21 @@
         });
 
         function openReplaceLogo(index) {
-            replaceLogoIndex = index;
+            var b = brands[index];
+            replaceLogoTarget = isAdminBrands && b.id
+                ? { brandId: b.id, listIndex: index }
+                : { index: index, listIndex: index };
             document.getElementById('replaceLogoInput').click();
         }
 
         function deleteBrand(index) {
+            var b = brands[index];
+            var delBody = isAdminBrands && b.id ? { brandId: b.id } : { index: index };
             fetch('/api/brands', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ index: index })
+                credentials: 'include',
+                body: JSON.stringify(delBody)
             })
             .then(function(res) { return res.json(); })
             .then(function(data) {
@@ -113,10 +140,15 @@
         }
 
         function setActive(index, active) {
+            var b = brands[index];
+            var patchBody = isAdminBrands && b.id
+                ? { brandId: b.id, active: active }
+                : { index: index, active: active };
             fetch('/api/brands', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ index: index, active: active })
+                credentials: 'include',
+                body: JSON.stringify(patchBody)
             })
             .then(function(res) { return res.json(); })
             .then(function(data) {
@@ -148,7 +180,7 @@
             }
 
             emptyEl.style.display = 'none';
-            listEl.style.display = 'flex';
+            listEl.style.display = 'grid';
             listEl.innerHTML = '';
 
             brands.forEach(function(brand, index) {
@@ -192,6 +224,13 @@
                 nameEl.textContent = brand.name;
                 card.appendChild(nameEl);
 
+                if (isAdminBrands && brand.ownerUsername) {
+                    var ownerEl = document.createElement('div');
+                    ownerEl.className = 'brand-owner';
+                    ownerEl.textContent = 'Owner: ' + brand.ownerUsername;
+                    card.appendChild(ownerEl);
+                }
+
                 var toggleRow = document.createElement('div');
                 toggleRow.className = 'toggle-row';
                 var label = document.createElement('label');
@@ -211,18 +250,51 @@
             });
         }
 
-        fetch('/api/brands')
+        fetch('/api/me', { credentials: 'include' })
             .then(function(res) { return res.json(); })
+            .then(function(me) {
+                if (!me.authenticated) {
+                    window.location.href = '/Login.html';
+                    return Promise.reject(new Error('auth'));
+                }
+                isAdminBrands = me.role === 'admin';
+                if (isAdminBrands) {
+                    document.getElementById('dirSubtitle').textContent =
+                        'Global overview — all brands across team workspaces. Owner shows the internal user for each workspace.';
+                }
+                var url = isAdminBrands ? '/api/admin/brands' : '/api/brands';
+                return fetch(url, { credentials: 'include' });
+            })
+            .then(function(res) {
+                if (!res) return null;
+                if (res.status === 401) { window.location.href = '/Login.html'; return Promise.reject(new Error('auth')); }
+                if (res.status === 403) {
+                    return res.json().then(function(data) {
+                        throw new Error(data.error || 'Forbidden');
+                    });
+                }
+                return res.json();
+            })
             .then(function(data) {
+                if (!data) return;
+                if (data.error) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('error').textContent = data.error;
+                    document.getElementById('error').style.display = 'block';
+                    return;
+                }
                 document.getElementById('error').style.display = 'none';
                 brands = data.brands || [];
                 render();
             })
             .catch(function(err) {
+                if (err && err.message === 'auth') return;
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('error').textContent = 'Could not load brands: ' + err.message;
+                document.getElementById('error').textContent = 'Could not load brands: ' + (err && err.message ? err.message : 'unknown');
                 document.getElementById('error').style.display = 'block';
             });
     </script>
+    <div data-shared-footer></div>
+    <script src="/js/layout-shell.js"></script>
 </body>
 </html>

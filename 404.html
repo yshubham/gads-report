@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Not Found — Kelvera</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .missing-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: var(--color-bg-dark);
+        }
+        .missing-card {
+            width: 100%;
+            max-width: 680px;
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            padding: 36px;
+            text-align: center;
+        }
+        .missing-code {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: var(--color-accent);
+        }
+        .missing-card h1 {
+            margin-top: 8px;
+            font-size: 1.5rem;
+            color: var(--color-text);
+        }
+        .missing-card p {
+            margin-top: 10px;
+            color: var(--color-text-muted);
+            line-height: 1.6;
+        }
+        .fact-box {
+            margin-top: 24px;
+            padding: 18px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background: rgba(20, 184, 166, 0.08);
+            text-align: left;
+        }
+        .fact-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--color-accent);
+            margin-bottom: 10px;
+        }
+        .fact-text {
+            color: var(--color-text);
+            line-height: 1.6;
+            min-height: 44px;
+        }
+        .actions {
+            margin-top: 22px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn.secondary {
+            width: auto;
+            background: transparent;
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+        }
+        .btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-1px);
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <main class="missing-page">
+        <section class="missing-card">
+            <div class="missing-code">404</div>
+            <h1>This page does not exist</h1>
+            <p>The URL you opened is not available. Here is a random joke/fact while you head back.</p>
+
+            <div class="fact-box">
+                <div class="fact-title" id="factTitle">Random</div>
+                <div class="fact-text" id="factText">Loading...</div>
+            </div>
+
+            <div class="actions">
+                <a class="btn" href="/Login.html">Go to Login</a>
+                <button type="button" class="btn secondary" id="reloadFact">Another one</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        var factTitle = document.getElementById('factTitle');
+        var factText = document.getElementById('factText');
+
+        function setMessage(title, text) {
+            factTitle.textContent = title;
+            factText.textContent = text;
+        }
+
+        function loadRandomLine() {
+            setMessage('Random', 'Loading...');
+            fetch('https://v2.jokeapi.dev/joke/Any?safe-mode&type=single')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data && data.joke) {
+                        setMessage('Random joke', data.joke);
+                        return;
+                    }
+                    throw new Error('No joke');
+                })
+                .catch(function() {
+                    fetch('https://uselessfacts.jsph.pl/api/v2/facts/random?language=en')
+                        .then(function(res) { return res.json(); })
+                        .then(function(data) {
+                            if (data && data.text) {
+                                setMessage('Random fact', data.text);
+                                return;
+                            }
+                            throw new Error('No fact');
+                        })
+                        .catch(function() {
+                            setMessage('Fallback', 'No fun fact API reached right now. Try again in a moment.');
+                        });
+                });
+        }
+
+        document.getElementById('reloadFact').addEventListener('click', loadRandomLine);
+        loadRandomLine();
+    </script>
+    <div data-shared-footer></div>
+    <script src="/js/layout-shell.js"></script>
+</body>
+</html>

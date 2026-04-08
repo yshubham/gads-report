@@ -8,22 +8,47 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .checkbox-row { margin-top: 8px; }
+        .checkbox-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-weight: 500; }
+        .checkbox-label input { width: auto; margin-top: 4px; }
+        .client-fields label { display: block; margin-top: 12px; }
+        .client-fields label:first-of-type { margin-top: 0; }
+    </style>
 </head>
 <body class="addbrand-page">
     <nav class="navbar">
         <div class="nav-left">
-            <a href="/Dashboard.html" class="brand">Kelvera G-Ads Reporting</a>
+            <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
             <div class="nav-links">
-                <a href="/Dashboard.html">Dashboard</a>
+                <a href="/Dashboard.html" data-internal-home>Dashboard</a>
                 <a href="/AddBrand.html" class="active">Add Brand</a>
                 <a href="/Directory.html">Directory</a>
                 <a href="/Reporting.html">Reporting</a>
+                <a href="/Users.html" data-nav-admin-only>Team</a>
                 <a href="/saver.html">Calculator</a>
             </div>
         </div>
         <div class="nav-right">
-            <span class="username" id="navUsername">—</span>
-            <a href="/Login.html" class="btn-logout" id="logoutBtn">Logout</a>
+            <div class="nav-user-menu" id="navUserMenu">
+                <button type="button" class="nav-user-trigger" id="navUserTrigger" aria-expanded="false" aria-haspopup="true">
+                    <span class="username nav-user-name" id="navUsername">—</span>
+                    <span class="nav-user-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="nav-user-dropdown" id="navUserDropdown" role="menu" hidden>
+                    <div class="nav-dropdown-section">
+                        <div class="nav-dropdown-heading">Change password</div>
+                        <form id="navPwdForm" class="nav-pwd-form">
+                            <input type="password" id="navCurrentPwd" required autocomplete="current-password" placeholder="Current password" class="nav-pwd-input">
+                            <input type="password" id="navNewPwd" required minlength="8" autocomplete="new-password" placeholder="New password (min. 8)" class="nav-pwd-input">
+                            <button type="submit" class="btn btn-nav-pwd" id="navPwdSubmit">Update password</button>
+                        </form>
+                        <div id="navPwdStatus" class="form-status nav-pwd-status"></div>
+                    </div>
+                    <div class="nav-dropdown-divider"></div>
+                    <button type="button" class="nav-dropdown-logout" id="logoutBtn">Log out</button>
+                </div>
+            </div>
         </div>
     </nav>
     <main class="main">
@@ -39,6 +64,18 @@
                     <input type="file" id="logoFile" accept="image/*" required>
                     <div class="logo-preview" id="logoPreview"></div>
                 </div>
+                <div class="input-group checkbox-row">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="createClientDashboard">
+                        <span>Create client reporting dashboard as well</span>
+                    </label>
+                </div>
+                <div class="input-group client-fields" id="clientFields" style="display: none;">
+                    <label for="clientUsername">Client dashboard username</label>
+                    <input type="text" id="clientUsername" name="clientUsername" placeholder="Username for client login" autocomplete="off">
+                    <label for="clientPassword">Client dashboard password</label>
+                    <input type="password" id="clientPassword" name="clientPassword" placeholder="Min. 8 characters" autocomplete="new-password">
+                </div>
                 <button type="submit" class="btn" id="submitBtn">Save Brand</button>
             </form>
             <div class="form-status" id="formStatus"></div>
@@ -50,15 +87,21 @@
             var user = sessionStorage.getItem('username');
             if (!user) { window.location.href = '/Login.html'; return; }
             document.getElementById('navUsername').textContent = user;
-            document.getElementById('logoutBtn').addEventListener('click', function(e) {
-                e.preventDefault();
-                sessionStorage.removeItem('username');
-                window.location.href = '/Login.html';
-            });
         })();
     </script>
+    <script src="/js/internal-nav.js"></script>
+    <script src="/js/internal-user-menu.js"></script>
     <script>
         var logoDataUrl = null;
+
+        document.getElementById('createClientDashboard').addEventListener('change', function() {
+            var on = document.getElementById('createClientDashboard').checked;
+            document.getElementById('clientFields').style.display = on ? 'block' : 'none';
+            if (!on) {
+                document.getElementById('clientUsername').value = '';
+                document.getElementById('clientPassword').value = '';
+            }
+        });
 
         document.getElementById('logoFile').addEventListener('change', function(e) {
             var file = e.target.files[0];
@@ -95,17 +138,39 @@
                 return false;
             }
 
+            var createDash = document.getElementById('createClientDashboard').checked;
+            var clientUser = document.getElementById('clientUsername').value.trim();
+            var clientPass = document.getElementById('clientPassword').value;
+            if (createDash) {
+                if (!clientUser) {
+                    showStatus('Please enter a client dashboard username.', true);
+                    return false;
+                }
+                if (!clientPass || clientPass.length < 8) {
+                    showStatus('Client password must be at least 8 characters.', true);
+                    return false;
+                }
+            }
+
             var btn = document.getElementById('submitBtn');
             btn.disabled = true;
             showStatus('Saving…', false);
 
+            var payload = {
+                brandName: brandName,
+                logo: logoDataUrl
+            };
+            if (createDash) {
+                payload.createClientDashboard = true;
+                payload.clientUsername = clientUser;
+                payload.clientPassword = clientPass;
+            }
+
             fetch('/api/add-brand', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    brandName: brandName,
-                    logo: logoDataUrl
-                })
+                credentials: 'include',
+                body: JSON.stringify(payload)
             })
             .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
             .then(function(result) {
@@ -114,9 +179,15 @@
                     showStatus('Brand saved successfully.', false);
                     document.getElementById('addBrandForm').reset();
                     document.getElementById('logoPreview').innerHTML = '';
+                    document.getElementById('createClientDashboard').checked = false;
+                    document.getElementById('clientFields').style.display = 'none';
                     logoDataUrl = null;
                 } else {
-                    showStatus(result.data.error || 'Failed to save brand.', true);
+                    if (result.data && result.data.error === 'Unauthorized') {
+                        window.location.href = '/Login.html';
+                        return;
+                    }
+                    showStatus((result.data && result.data.error) || 'Failed to save brand.', true);
                 }
             })
             .catch(function(err) {
@@ -126,5 +197,7 @@
             return false;
         }
     </script>
+    <div data-shared-footer></div>
+    <script src="/js/layout-shell.js"></script>
 </body>
 </html>

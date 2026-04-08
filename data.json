@@ -2,19 +2,19 @@
   "exportDate": "2025-09-12T17:11:56.261Z",
   "version": "1.0",
   "campaign": {
-    "accountId": "348-313-KVZONE",
+    "accountId": "731-543-KVZONE",
     "accountName": "MANAGER API ACCOUNT",
-    "campaignName": "Reddy",
+    "campaignName": "Mahadev",
     "adGroupName": "Ad Group 1",
-    "date": "Feb 26, 2026",
-    "cpc": 9.01,
-    "cost": "12,091.16",
-    "ctr": 0.54,
+    "date": "Apr 7, 2026",
+    "cpc": 10.32,
+    "cost": "24,910",
+    "ctr": 0.52,
     "cpm": 0,
     "timestamp": "2025-09-12T17:11:56.261Z",
-    "clicks": "1,335",
-    "impressions": "247,222",
-    "imagePath": "/brands/reddy-1771758503653.png",
-    "imageFilename": "reddy-1771758503653.png"
+    "clicks": "2,422",
+    "impressions": "465,769",
+    "imagePath": "/brands/mahadev-1775539049450.png",
+    "imageFilename": "mahadev-1775539049450.png"
   }
 }

@@ -4,274 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kelvera Group Click Reports</title>
-  <style>
-    :root {
-      --bg: #f4fbf5;
-      --panel: rgba(255, 255, 255, 0.88);
-      --panel-strong: #ffffff;
-      --text: #173227;
-      --muted: #5f7b6a;
-      --accent: #78b88a;
-      --accent-deep: #4e8b61;
-      --line: #d6e8d8;
-      --shadow: 0 20px 50px rgba(69, 113, 83, 0.15);
-    }
+    <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/report-billing.css">
 
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(162, 212, 175, 0.4), transparent 32%),
-        radial-gradient(circle at bottom right, rgba(203, 235, 207, 0.85), transparent 28%),
-        linear-gradient(180deg, #eff9f0 0%, #e7f5e9 100%);
-      display: grid;
-      place-items: center;
-      padding: 24px;
-    }
-
-    .card {
-      width: min(960px, 100%);
-      background: var(--panel);
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      border-radius: 28px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      backdrop-filter: blur(10px);
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-    }
-
-    .hero,
-    .calculator {
-      padding: 40px;
-    }
-
-    .hero {
-      background: linear-gradient(145deg, rgba(120, 184, 138, 0.14), rgba(255, 255, 255, 0.65));
-      border-right: 1px solid var(--line);
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      padding: 8px 14px;
-      border-radius: 999px;
-      background: rgba(120, 184, 138, 0.15);
-      color: var(--accent-deep);
-      font-size: 0.84rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    h1 {
-      margin: 18px 0 12px;
-      font-size: clamp(2rem, 4vw, 3.2rem);
-      line-height: 1.02;
-    }
-
-    .lead {
-      margin: 0 0 28px;
-      color: var(--muted);
-      font-size: 1.02rem;
-      line-height: 1.7;
-      max-width: 42ch;
-    }
-
-    .meta-box {
-      margin-top: 8px;
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: #f7fcf7;
-      display: grid;
-      gap: 6px;
-    }
-
-    .meta-date {
-      font-weight: 700;
-      color: var(--accent-deep);
-    }
-
-    .meta-kpi {
-      font-size: 1rem;
-      color: var(--text);
-    }
-
-    .meta-muted {
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-
-    .calculator {
-      background: rgba(255, 255, 255, 0.72);
-    }
-
-    .calculator h2 {
-      margin: 0 0 16px;
-      font-size: 1.1rem;
-    }
-
-    .form-grid {
-      display: grid;
-      gap: 18px;
-    }
-
-    label {
-      display: grid;
-      gap: 8px;
-      font-size: 0.95rem;
-      font-weight: 700;
-    }
-
-    input {
-      width: 100%;
-      border: 1px solid var(--line);
-      background: #fcfffc;
-      color: var(--text);
-      border-radius: 14px;
-      padding: 14px 16px;
-      font: inherit;
-      outline: none;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-    }
-
-    input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(120, 184, 138, 0.16);
-      transform: translateY(-1px);
-    }
-
-    button {
-      margin-top: 4px;
-      border: none;
-      border-radius: 12px;
-      padding: 14px 16px;
-      font: inherit;
-      font-weight: 700;
-      color: #fff;
-      background: linear-gradient(135deg, #78b88a 0%, #4e8b61 100%);
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-      box-shadow: 0 10px 24px rgba(78, 139, 97, 0.28);
-    }
-
-    button:hover {
-      transform: translateY(-1px);
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.7;
-      transform: none;
-      box-shadow: none;
-    }
-
-    .msg {
-      margin-top: 14px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      font-size: 0.93rem;
-    }
-
-    .msg.error {
-      border: 1px solid #f7bdbd;
-      background: #fff1f1;
-      color: #8a2f2f;
-    }
-
-    .msg.success {
-      border: 1px solid var(--line);
-      background: #f7fcf7;
-      color: var(--muted);
-    }
-
-    .result {
-      margin-top: 20px;
-      padding: 22px;
-      border-radius: 22px;
-      background: linear-gradient(180deg, #eef8ef 0%, #ffffff 100%);
-      border: 1px solid var(--line);
-    }
-
-    .result-label {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.92rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .total {
-      margin: 8px 0 16px;
-      font-size: clamp(2.1rem, 5vw, 3rem);
-      font-weight: 800;
-      color: var(--accent-deep);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      overflow: hidden;
-      border-radius: 14px;
-      background: #ffffff;
-      border: 1px solid var(--line);
-    }
-
-    th,
-    td {
-      padding: 11px 12px;
-      border-bottom: 1px solid #ecf5ed;
-      text-align: left;
-      font-size: 0.95rem;
-    }
-
-    th {
-      color: var(--muted);
-      font-weight: 700;
-      background: #f7fcf7;
-    }
-
-    td.right,
-    th.right {
-      text-align: right;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    .empty-note {
-      margin-top: 14px;
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.6;
-    }
-
-    @media (max-width: 760px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-
-      .hero {
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .hero,
-      .calculator {
-        padding: 28px;
-      }
-    }
-  </style>
 </head>
 <body>
   <main class="card">
@@ -289,6 +24,9 @@
       <div class="calculator">
         <h2>Report Input</h2>
         <form id="reportForm" class="form-grid">
+          <label for="reportDate">
+            <input id="reportDate" type="date" aria-label="Report date (IST)">
+          </label>
           <label for="slugInput">
             <input id="slugInput" type="text" placeholder="campaign name">
           </label>
@@ -306,6 +44,7 @@
 
     const form = document.getElementById("reportForm");
     const slugInput = document.getElementById("slugInput");
+    const reportDateInput = document.getElementById("reportDate");
     const submitBtn = document.getElementById("submitBtn");
     const message = document.getElementById("message");
     const results = document.getElementById("results");
@@ -359,23 +98,28 @@
       });
     }
 
-    async function fetchTodayConversions() {
+    async function fetchConversionsForDate(dateKey) {
       let lastError = null;
       for (const base of API_BASES) {
         try {
-          const res = await fetch(`${base}/api/conversions`, {
+          const datedUrl = `${base}/api/conversions?date=${encodeURIComponent(dateKey)}`;
+          const fallbackUrl = `${base}/api/conversions`;
+          let res = await fetch(datedUrl, {
             method: "GET",
             mode: "cors",
           });
-          const data = await res.json().catch(() => ({}));
+          let data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            res = await fetch(fallbackUrl, { method: "GET", mode: "cors" });
+            data = await res.json().catch(() => ({}));
+          }
           if (!res.ok) {
             return {
               ok: false,
               message: data.error || `Request failed (${res.status})`,
             };
           }
-          const todayKey = getIstDateKey();
-          if (data.dateKey !== todayKey) {
+          if (data.dateKey && data.dateKey !== dateKey) {
             return { ok: true, data: null };
           }
           const conversions = Number(data.conversions);
@@ -408,8 +152,8 @@
       return Number.isFinite(clicks) && clicks > 0 ? clicks : 0;
     }
 
-    async function refreshConversionMetric() {
-      const conversionRes = await fetchTodayConversions();
+    async function refreshConversionMetric(dateKey) {
+      const conversionRes = await fetchConversionsForDate(dateKey);
       if (!conversionRes.ok || !conversionRes.data) {
         conversionRate.textContent = "Conversion %: --";
         lastUpdated.textContent = "Last updated (IST): --";
@@ -417,7 +161,7 @@
       }
       const conversionData = conversionRes.data;
 
-      const stakeReport = await tryFetchReport(STAKE_REPORT_SLUG);
+      const stakeReport = await tryFetchReport(STAKE_REPORT_SLUG, dateKey);
       if (!stakeReport.ok || !stakeReport.data) {
         conversionRate.textContent = "Conversion %: --";
         lastUpdated.textContent = `Last updated (IST): ${formatIstTime(conversionData.updatedAt)}`;
@@ -474,14 +218,19 @@
       `;
     }
 
-    async function tryFetchReport(slug) {
+    async function tryFetchReport(slug, dateKey) {
       let lastError = null;
 
       for (const base of API_BASES) {
-        const url = `${base}/api/reports/${encodeURIComponent(slug)}`;
+        const datedUrl = `${base}/api/reports/${encodeURIComponent(slug)}?date=${encodeURIComponent(dateKey)}`;
+        const fallbackUrl = `${base}/api/reports/${encodeURIComponent(slug)}`;
         try {
-          const res = await fetch(url, { method: "GET", mode: "cors" });
-          const data = await res.json().catch(() => ({}));
+          let res = await fetch(datedUrl, { method: "GET", mode: "cors" });
+          let data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            res = await fetch(fallbackUrl, { method: "GET", mode: "cors" });
+            data = await res.json().catch(() => ({}));
+          }
 
           if (!res.ok) {
             return {
@@ -504,8 +253,11 @@
       };
     }
 
+    const todayKey = getIstDateKey();
+    reportDateInput.value = todayKey;
+    reportDateInput.max = todayKey;
     todayDate.textContent = `Today: ${formatIstDate()}`;
-    void refreshConversionMetric();
+    void refreshConversionMetric(todayKey);
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -513,6 +265,7 @@
       clearResults();
 
       const slug = slugInput.value.trim();
+      const selectedDate = reportDateInput.value || todayKey;
       if (!slug) {
         showMessage("Please enter a slug.", "error");
         return;
@@ -522,7 +275,7 @@
       submitBtn.textContent = "Loading...";
 
       try {
-        const out = await tryFetchReport(slug);
+        const out = await tryFetchReport(slug, selectedDate);
         if (!out.ok) {
           showMessage(out.message || "Could not fetch report for this slug.", "error");
           return;
@@ -530,7 +283,7 @@
 
         showMessage("Report loaded successfully.", "success");
         renderResults(out.data);
-        await refreshConversionMetric();
+        await refreshConversionMetric(selectedDate);
       } catch {
         showMessage("Unexpected error while loading report.", "error");
       } finally {
@@ -539,6 +292,8 @@
       }
     });
   </script>
+    <div data-shared-footer></div>
+    <script src="/js/layout-shell.js"></script>
 </body>
 </html>
 

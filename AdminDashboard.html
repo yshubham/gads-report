@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard — Kelvera G-Ads Reporting</title>
+    <title>Admin Dashboard — Kelvera G-Ads Reporting</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,12 +30,13 @@
 <body>
     <nav class="navbar">
         <div class="nav-left">
-            <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
+            <a href="/AdminDashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
             <div class="nav-links">
-                <a href="/Dashboard.html" data-internal-home class="active">Dashboard</a>
+                <a href="/AdminDashboard.html" data-internal-home class="active">Dashboard</a>
                 <a href="/AddBrand.html">Add Brand</a>
                 <a href="/Directory.html">Directory</a>
                 <a href="/Reporting.html">Reporting</a>
+                <a href="/Users.html">Team</a>
                 <a href="/saver.html">Calculator</a>
             </div>
         </div>
@@ -70,7 +71,7 @@
         (function() {
             var user = sessionStorage.getItem('username');
             if (!user) { window.location.href = '/Login.html'; return; }
-            if (sessionStorage.getItem('role') === 'admin') { window.location.href = '/AdminDashboard.html'; return; }
+            if (sessionStorage.getItem('role') !== 'admin') { window.location.href = '/Dashboard.html'; return; }
 
             document.getElementById('navUsername').textContent = user;
 
