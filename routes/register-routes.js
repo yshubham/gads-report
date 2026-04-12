@@ -10,6 +10,9 @@ function registerAdminRoutes(routes, handlers) {
   routes.set('DELETE /api/internal-users', handlers.handleDeleteInternalUser);
   routes.set('GET /api/admin/brands', handlers.handleAdminBrands);
   routes.set('GET /api/admin/team', handlers.handleAdminTeam);
+  routes.set('GET /api/admin/spend-history', handlers.handleAdminSpendHistory);
+  routes.set('GET /api/admin/archive-brands', handlers.handleArchiveBrands);
+  routes.set('GET /api/admin/archive-history', handlers.handleArchiveHistory);
 }
 
 function registerBrandRoutes(routes, handlers) {
@@ -19,6 +22,7 @@ function registerBrandRoutes(routes, handlers) {
   routes.set('PATCH /api/brands', handlers.handlePatchBrand);
   routes.set('PATCH /api/brands/logo', handlers.handleReplaceBrandLogo);
   routes.set('DELETE /api/brands', handlers.handleDeleteBrand);
+  routes.set('GET /api/report-data', handlers.handleReportData);
 }
 
 function registerClientRoutes(routes, handlers) {

@@ -11,3 +11,4 @@ credentials.*.json
 
 # Generated
 screenshots/
+.claude/

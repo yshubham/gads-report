@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard — Kelvera G-Ads Reporting</title>
+    <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,7 +20,7 @@
             padding: 24px;
         }
         .time-text {
-            font-size: clamp(4rem, 22vw, 12rem);
+            font-size: clamp(6rem, 28vw, 25rem);
             font-weight: 700;
             color: var(--color-text);
             letter-spacing: 0.02em;
@@ -28,6 +29,7 @@
     </style>
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <nav class="navbar">
         <div class="nav-left">
             <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
@@ -62,7 +64,7 @@
         </div>
     </nav>
 
-    <main class="main">
+    <main class="main" id="main-content">
         <div class="time-text" id="timeText">—:—:—</div>
     </main>
 

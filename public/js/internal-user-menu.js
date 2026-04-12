@@ -5,7 +5,8 @@
   if (!menu || !trigger || !dropdown) return;
   var THEME_KEY = 'site_theme_mode';
 
-  var isDark = localStorage.getItem(THEME_KEY) === 'dark';
+  var stored = localStorage.getItem(THEME_KEY);
+  var isDark = stored === 'dark' || (stored === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
   else document.documentElement.removeAttribute('data-theme');
 
@@ -16,7 +17,7 @@
     '<div class="nav-dropdown-section nav-theme-row">',
     '  <span class="nav-theme-label">Night mode</span>',
     '  <label class="theme-switch" for="navThemeToggle">',
-    '    <input type="checkbox" id="navThemeToggle">',
+    '    <input type="checkbox" id="navThemeToggle" aria-label="Toggle dark mode">',
     '    <span class="theme-switch-slider"></span>',
     '  </label>',
     '</div>',

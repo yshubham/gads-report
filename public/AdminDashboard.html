@@ -4,30 +4,65 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard — Kelvera G-Ads Reporting</title>
+    <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
     <style>
-        body { display: flex; flex-direction: column; }
+        body { font-family: "DM Sans", var(--font-sans); display: flex; flex-direction: column; }
+
         .main {
             flex: 1;
-            min-height: calc(100vh - 56px);
+            padding: 32px 24px 56px;
+            max-width: 1100px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* ── Clock ── */
+        .admin-clock-section {
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 24px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 36px;
         }
-        .time-text {
-            font-size: clamp(4rem, 22vw, 12rem);
+
+        .admin-clock-wrap {}
+
+        .admin-clock-label {
+            font-size: 0.7rem;
             font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--color-text-dim);
+            margin-bottom: 4px;
+        }
+
+        .time-text {
+            font-size: clamp(2.4rem, 8vw, 4.5rem);
+            font-weight: 800;
             color: var(--color-text);
             letter-spacing: 0.02em;
             font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+
+        .admin-clock-date {
+            font-size: 0.875rem;
+            color: var(--color-text-muted);
+            margin-top: 6px;
+        }
+
+        @media (max-width: 600px) {
+            .main { padding: 20px 14px 40px; }
         }
     </style>
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <nav class="navbar">
         <div class="nav-left">
             <a href="/AdminDashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
@@ -38,6 +73,7 @@
                 <a href="/Reporting.html">Reporting</a>
                 <a href="/Users.html">Team</a>
                 <a href="/saver.html">Calculator</a>
+                <a href="/Archive.html">Archive</a>
             </div>
         </div>
         <div class="nav-right">
@@ -46,25 +82,22 @@
                     <span class="username nav-user-name" id="navUsername">—</span>
                     <span class="nav-user-chevron" aria-hidden="true"></span>
                 </button>
-                <div class="nav-user-dropdown" id="navUserDropdown" role="menu" hidden>
-                    <div class="nav-dropdown-section">
-                        <div class="nav-dropdown-heading">Change password</div>
-                        <form id="navPwdForm" class="nav-pwd-form">
-                            <input type="password" id="navCurrentPwd" required autocomplete="current-password" placeholder="Current password" class="nav-pwd-input">
-                            <input type="password" id="navNewPwd" required minlength="8" autocomplete="new-password" placeholder="New password (min. 8)" class="nav-pwd-input">
-                            <button type="submit" class="btn btn-nav-pwd" id="navPwdSubmit">Update password</button>
-                        </form>
-                        <div id="navPwdStatus" class="form-status nav-pwd-status"></div>
-                    </div>
-                    <div class="nav-dropdown-divider"></div>
-                    <button type="button" class="nav-dropdown-logout" id="logoutBtn">Log out</button>
-                </div>
+                <div class="nav-user-dropdown" id="navUserDropdown" role="menu" hidden></div>
             </div>
         </div>
     </nav>
 
-    <main class="main">
-        <div class="time-text" id="timeText">—:—:—</div>
+    <main class="main" id="main-content">
+
+        <!-- Clock + date -->
+        <div class="admin-clock-section">
+            <div class="admin-clock-wrap">
+                <div class="admin-clock-label">Current time (IST)</div>
+                <div class="time-text" id="timeText">—:—:—</div>
+                <div class="admin-clock-date" id="dateText">—</div>
+            </div>
+        </div>
+
     </main>
 
     <script>
@@ -72,18 +105,17 @@
             var user = sessionStorage.getItem('username');
             if (!user) { window.location.href = '/Login.html'; return; }
             if (sessionStorage.getItem('role') !== 'admin') { window.location.href = '/Dashboard.html'; return; }
-
             document.getElementById('navUsername').textContent = user;
 
             function showTime() {
-                var str = new Date().toLocaleTimeString('en-IN', {
-                    timeZone: 'Asia/Kolkata',
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
+                var now = new Date();
+                document.getElementById('timeText').textContent = now.toLocaleTimeString('en-IN', {
+                    timeZone: 'Asia/Kolkata', hour12: false,
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
                 });
-                document.getElementById('timeText').textContent = str;
+                document.getElementById('dateText').textContent = now.toLocaleDateString('en-IN', {
+                    timeZone: 'Asia/Kolkata', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                });
             }
             showTime();
             setInterval(showTime, 1000);

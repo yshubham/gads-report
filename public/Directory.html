@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directory — Kelvera G-Ads Reporting</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        body { font-family: "DM Sans", var(--font-sans); }
+
+        .main {
+            padding: 36px 24px 64px;
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+
+        /* ── Page header ── */
+        .dir-page-header {
+            margin-bottom: 32px;
+        }
+
+        .dir-page-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            background: rgba(120, 184, 138, 0.15);
+            color: var(--color-accent);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .dir-page-title {
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            font-weight: 800;
+            color: var(--color-text);
+            letter-spacing: -0.02em;
+            line-height: 1.05;
+            margin: 0 0 6px;
+        }
+
+        .dir-page-subtitle {
+            font-size: 0.9rem;
+            color: var(--color-text-muted);
+            margin: 0;
+        }
+
+        /* ── States ── */
+        .dir-loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--color-text-muted);
+            font-size: 0.875rem;
+            padding: 40px 0;
+        }
+
+        .dir-loading-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--color-accent);
+            animation: dir-pulse 1.1s ease-in-out infinite;
+        }
+        @keyframes dir-pulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+
+        .dir-error {
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: var(--color-status-error-bg);
+            border: 1px solid var(--color-status-error-border);
+            color: var(--color-status-error-text);
+            font-size: 0.875rem;
+            display: none;
+        }
+
+        .dir-empty {
+            display: none;
+            text-align: center;
+            padding: 60px 24px;
+            color: var(--color-text-muted);
+        }
+
+        .dir-empty-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .dir-empty-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 6px;
+        }
+
+        .dir-empty a {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        /* ── Grid ── */
+        .dir-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            display: none;
+        }
+
+        /* ── Brand card ── */
+        .dir-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: box-shadow 0.18s, border-color 0.18s, transform 0.18s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dir-card:hover {
+            box-shadow: 0 8px 32px rgba(86, 117, 72, 0.12);
+            border-color: rgba(120, 184, 138, 0.45);
+            transform: translateY(-2px);
+        }
+
+        .dir-card.archived {
+            opacity: 0.62;
+        }
+        .dir-card.archived:hover {
+            opacity: 0.8;
+        }
+
+        /* Delete button — top-right corner */
+        .dir-delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+            background: var(--color-surface);
+            color: var(--color-text-dim);
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            z-index: 2;
+        }
+        .dir-delete-btn:hover {
+            background: var(--color-status-error-bg);
+            border-color: var(--color-status-error-border);
+            color: var(--color-status-error-text);
+        }
+
+        /* Logo area */
+        .dir-logo-area {
+            background: linear-gradient(145deg, rgba(120, 184, 138, 0.07), rgba(128, 180, 128, 0.04));
+            border-bottom: 1px solid var(--color-border);
+            padding: 28px 24px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 110px;
+            position: relative;
+            cursor: default;
+        }
+
+        .dir-logo-area.clickable {
+            cursor: pointer;
+        }
+
+        .dir-logo-area.clickable:hover .dir-replace-overlay {
+            opacity: 1;
+        }
+
+        .dir-replace-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.18s;
+            border-radius: 0;
+        }
+
+        .dir-replace-overlay-text {
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+        }
+
+        .dir-logo-img {
+            max-width: 80px;
+            max-height: 56px;
+            object-fit: contain;
+            border-radius: 6px;
+        }
+
+        /* Card body */
+        .dir-card-body {
+            padding: 14px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .dir-brand-name {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--color-text);
+            line-height: 1.3;
+        }
+
+        .dir-brand-owner {
+            font-size: 0.75rem;
+            color: var(--color-text-dim);
+        }
+
+        .dir-brand-owner strong {
+            color: var(--color-text-muted);
+            font-weight: 600;
+        }
+
+        /* Toggle row */
+        .dir-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            padding-top: 4px;
+        }
+
+        .dir-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .dir-status-badge.active {
+            background: rgba(120, 184, 138, 0.15);
+            color: var(--color-accent);
+            border: 1px solid rgba(120, 184, 138, 0.3);
+        }
+
+        .dir-status-badge.archived {
+            background: var(--color-bg-surface-light);
+            color: var(--color-text-dim);
+            border: 1px solid var(--color-border);
+        }
+
+        .dir-status-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Toggle switch */
+        .dir-switch {
+            position: relative;
+            width: 34px;
+            height: 19px;
+            flex-shrink: 0;
+        }
+
+        .dir-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .dir-switch-track {
+            position: absolute;
+            inset: 0;
+            border-radius: 999px;
+            background: var(--color-border);
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .dir-switch input:checked + .dir-switch-track {
+            background: var(--color-primary);
+        }
+
+        .dir-switch-track::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #fff;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .dir-switch input:checked + .dir-switch-track::after {
+            transform: translateX(15px);
+        }
+
+        @media (max-width: 600px) {
+            .main { padding: 20px 14px 48px; }
+            .dir-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .dir-logo-area { padding: 20px 16px 16px; min-height: 90px; }
+        }
+
+        @media (max-width: 380px) {
+            .dir-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
+            <div class="nav-links">
+                <a href="/Dashboard.html" data-internal-home>Dashboard</a>
+                <a href="/AddBrand.html">Add Brand</a>
+                <a href="/Directory.html" class="active">Directory</a>
+                <a href="/Reporting.html">Reporting</a>
+                <a href="/Users.html" data-nav-admin-only>Team</a>
+                <a href="/saver.html">Calculator</a>
+                <a href="/Archive.html" data-nav-admin-only>Archive</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <div class="nav-user-menu" id="navUserMenu">
+                <button type="button" class="nav-user-trigger" id="navUserTrigger" aria-expanded="false" aria-haspopup="true">
+                    <span class="username nav-user-name" id="navUsername">—</span>
+                    <span class="nav-user-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="nav-user-dropdown" id="navUserDropdown" role="menu" hidden></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main" id="main-content">
+        <div class="dir-page-header">
+            <div class="dir-page-eyebrow">
+                <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>
+                Directory
+            </div>
+            <h1 class="dir-page-title">Brand Directory</h1>
+            <p class="dir-page-subtitle" id="dirSubtitle">Manage brands and toggle visibility in reporting</p>
+        </div>
+
+        <input type="file" id="replaceLogoInput" accept="image/*" style="display: none;" aria-hidden="true">
+
+        <div class="dir-loading" id="loading">
+            <span class="dir-loading-dot" aria-hidden="true"></span>
+            Loading brands…
+        </div>
+        <div class="dir-error" id="error" role="alert"></div>
+        <div class="dir-empty" id="empty">
+            <div class="dir-empty-icon">🏷️</div>
+            <div class="dir-empty-title">No brands yet</div>
+            <p><a href="/AddBrand.html">Add your first brand</a> to get started.</p>
+        </div>
+        <div class="dir-grid" id="brandList"></div>
+    </main>
+
+    <script>
+        (function() {
+            var user = sessionStorage.getItem('username');
+            if (!user) { window.location.href = '/Login.html'; return; }
+            document.getElementById('navUsername').textContent = user;
+        })();
+    </script>
+    <script src="/js/utils.js"></script>
+    <script src="/js/internal-nav.js"></script>
+    <script src="/js/internal-user-menu.js"></script>
+    <script>
+        var brands = [];
+        var isAdminBrands = false;
+        var replaceLogoTarget = null;
+
+        document.getElementById('replaceLogoInput').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            e.target.value = '';
+            if (!file || !file.type.startsWith('image/') || replaceLogoTarget === null) return;
+            var target = replaceLogoTarget;
+            replaceLogoTarget = null;
+            var reader = new FileReader();
+            reader.onload = function() {
+                var body = target.brandId
+                    ? { brandId: target.brandId, logo: reader.result }
+                    : { index: target.index, logo: reader.result };
+                fetch('/api/brands/logo', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(body)
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.error) { showError(data.error); return; }
+                    var idx = target.listIndex;
+                    brands[idx].logoPath = data.logoPath || brands[idx].logoPath;
+                    render();
+                })
+                .catch(function(err) { showError('Error: ' + err.message); });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function showError(msg) {
+            var el = document.getElementById('error');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        function openReplaceLogo(index) {
+            var b = brands[index];
+            replaceLogoTarget = isAdminBrands && b.id
+                ? { brandId: b.id, listIndex: index }
+                : { index: index, listIndex: index };
+            document.getElementById('replaceLogoInput').click();
+        }
+
+        function deleteBrand(index) {
+            var b = brands[index];
+            var delBody = isAdminBrands && b.id ? { brandId: b.id } : { index: index };
+            fetch('/api/brands', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(delBody)
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.error) { showError(data.error); return; }
+                brands.splice(index, 1);
+                render();
+            })
+            .catch(function(err) { showError('Error: ' + err.message); });
+        }
+
+        function setActive(index, active) {
+            var b = brands[index];
+            var patchBody = isAdminBrands && b.id
+                ? { brandId: b.id, active: active }
+                : { index: index, active: active };
+            fetch('/api/brands', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(patchBody)
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.error) { showError(data.error); return; }
+                brands[index].active = active;
+                render();
+            })
+            .catch(function(err) { showError('Error: ' + err.message); });
+        }
+
+        function render() {
+            var listEl = document.getElementById('brandList');
+            var emptyEl = document.getElementById('empty');
+            var loadingEl = document.getElementById('loading');
+
+            loadingEl.style.display = 'none';
+
+            if (brands.length === 0) {
+                emptyEl.style.display = 'block';
+                listEl.style.display = 'none';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+            listEl.style.display = 'grid';
+            listEl.innerHTML = '';
+
+            brands.forEach(function(brand, index) {
+                var isActive = brand.active !== false;
+
+                var card = document.createElement('div');
+                card.className = 'dir-card' + (isActive ? '' : ' archived');
+
+                // Delete button
+                var deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'dir-delete-btn';
+                deleteBtn.title = 'Delete brand';
+                deleteBtn.setAttribute('aria-label', 'Delete ' + brand.name);
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (confirm('Delete "' + brand.name + '"? This cannot be undone.')) deleteBrand(index);
+                });
+                card.appendChild(deleteBtn);
+
+                // Logo area
+                var logoArea = document.createElement('div');
+                logoArea.className = 'dir-logo-area' + (isActive ? ' clickable' : '');
+                if (isActive) {
+                    logoArea.title = 'Click to replace logo';
+                    logoArea.setAttribute('role', 'button');
+                    logoArea.setAttribute('tabindex', '0');
+                    logoArea.addEventListener('click', function() { openReplaceLogo(index); });
+                    logoArea.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openReplaceLogo(index); }
+                    });
+                }
+
+                var img = document.createElement('img');
+                img.className = 'dir-logo-img';
+                img.src = normalizeLogoSrc(brand.logoPath);
+                img.alt = brand.name;
+                img.onerror = function() { img.style.display = 'none'; };
+                logoArea.appendChild(img);
+
+                if (isActive) {
+                    var overlay = document.createElement('div');
+                    overlay.className = 'dir-replace-overlay';
+                    overlay.setAttribute('aria-hidden', 'true');
+                    var overlayText = document.createElement('span');
+                    overlayText.className = 'dir-replace-overlay-text';
+                    overlayText.textContent = 'Replace logo';
+                    overlay.appendChild(overlayText);
+                    logoArea.appendChild(overlay);
+                }
+                card.appendChild(logoArea);
+
+                // Card body
+                var body = document.createElement('div');
+                body.className = 'dir-card-body';
+
+                var nameEl = document.createElement('div');
+                nameEl.className = 'dir-brand-name';
+                nameEl.textContent = brand.name;
+                body.appendChild(nameEl);
+
+                if (isAdminBrands && brand.ownerUsername) {
+                    var ownerEl = document.createElement('div');
+                    ownerEl.className = 'dir-brand-owner';
+                    ownerEl.innerHTML = '<strong>Owner:</strong> ' + escHtml(brand.ownerUsername);
+                    body.appendChild(ownerEl);
+                }
+
+                // Toggle row
+                var toggleRow = document.createElement('div');
+                toggleRow.className = 'dir-toggle-row';
+
+                var badge = document.createElement('span');
+                badge.className = 'dir-status-badge ' + (isActive ? 'active' : 'archived');
+                badge.innerHTML = '<span class="dir-status-dot" aria-hidden="true"></span>' +
+                    (isActive ? 'Active' : 'Archived');
+
+                var switchLabel = document.createElement('label');
+                switchLabel.className = 'dir-switch';
+                switchLabel.setAttribute('aria-label', (isActive ? 'Deactivate' : 'Activate') + ' ' + brand.name);
+
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = isActive;
+                checkbox.addEventListener('change', function() { setActive(index, checkbox.checked); });
+
+                var track = document.createElement('span');
+                track.className = 'dir-switch-track';
+                track.setAttribute('aria-hidden', 'true');
+
+                switchLabel.appendChild(checkbox);
+                switchLabel.appendChild(track);
+
+                toggleRow.appendChild(badge);
+                toggleRow.appendChild(switchLabel);
+                body.appendChild(toggleRow);
+
+                card.appendChild(body);
+                listEl.appendChild(card);
+            });
+        }
+
+        function escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        fetch('/api/me', { credentials: 'include' })
+            .then(function(res) { return res.json(); })
+            .then(function(me) {
+                if (!me.authenticated) { window.location.href = '/Login.html'; return Promise.reject(new Error('auth')); }
+                isAdminBrands = me.role === 'admin';
+                if (isAdminBrands) {
+                    document.getElementById('dirSubtitle').textContent =
+                        'Global overview — all brands across team workspaces. Owner shows the internal user for each workspace.';
+                }
+                var url = isAdminBrands ? '/api/admin/brands' : '/api/brands';
+                return fetch(url, { credentials: 'include' });
+            })
+            .then(function(res) {
+                if (!res) return null;
+                if (res.status === 401) { window.location.href = '/Login.html'; return Promise.reject(new Error('auth')); }
+                if (res.status === 403) {
+                    return res.json().then(function(data) { throw new Error(data.error || 'Forbidden'); });
+                }
+                return res.json();
+            })
+            .then(function(data) {
+                if (!data) return;
+                if (data.error) {
+                    document.getElementById('loading').style.display = 'none';
+                    showError(data.error);
+                    return;
+                }
+                document.getElementById('error').style.display = 'none';
+                brands = data.brands || [];
+                render();
+            })
+            .catch(function(err) {
+                if (err && err.message === 'auth') return;
+                document.getElementById('loading').style.display = 'none';
+                showError('Could not load brands: ' + (err && err.message ? err.message : 'unknown'));
+            });
+    </script>
+    <div data-shared-footer></div>
+    <script src="/js/layout-shell.js"></script>
+</body>
+</html>

@@ -10,11 +10,12 @@ const { buildApiRoutes } = require('./routes/register-routes');
 const { validateUserPass, validatePasswordChange, validateDataUpdate } = require('./lib/validators');
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.resolve(process.cwd());
+const PUBLIC_DIR = path.resolve(__dirname, 'public');
 const SESSION_COOKIE = 'kv_session';
 const SESSION_TTL_SEC = 7 * 24 * 60 * 60;
 const SESSION_SECRET = process.env.SESSION_SECRET || '';
 const ALLOW_LEGACY_FILE_AUTH = String(process.env.ALLOW_LEGACY_FILE_AUTH || '').toLowerCase() === 'true';
+const BCRYPT_ROUNDS = 10;
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -31,10 +32,11 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
 };
 
-const DATA_JSON_PATH = path.join(PUBLIC_DIR, 'data.json');
-const BRANDS_JSON_PATH = path.join(PUBLIC_DIR, 'brands.json');
+// Data files stay at project root (not served as static files)
+const DATA_JSON_PATH = path.join(__dirname, 'data.json');
+const BRANDS_JSON_PATH = path.join(__dirname, 'brands.json');
 const BRANDS_DIR = path.join(PUBLIC_DIR, 'brands');
-const CREDENTIALS_PATH = path.join(PUBLIC_DIR, 'credentials.json');
+const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
 
 function sendJson(res, statusCode, obj, extraHeaders) {
   res.setHeader('Content-Type', 'application/json');
@@ -144,6 +146,12 @@ function getYesterdayIST() {
   });
 }
 
+function getYesterdayISTKey() {
+  const d = new Date();
+  const yesterday = new Date(d.getTime() - 24 * 60 * 60 * 1000);
+  return yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+}
+
 function formatAccountId(prefix6) {
   const s = String(prefix6).padStart(6, '0').slice(0, 6);
   return `${s.slice(0, 3)}-${s.slice(3, 6)}-KVZONE`;
@@ -155,6 +163,12 @@ function slugify(str) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || 'brand';
+}
+
+function safeUnlink(filePath) {
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(PUBLIC_DIR + path.sep) && resolved !== PUBLIC_DIR) return;
+  fs.unlink(resolved, () => {});
 }
 
 function escapeRegex(s) {
@@ -180,15 +194,78 @@ function parseImageDataUrl(logo) {
   return { ext, mimeType, buf };
 }
 
+// Security: set protective headers on every response
+function setSecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;"
+  );
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+}
+
+// Security: simple in-memory IP-based rate limiter for login endpoints
+const loginAttempts = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 10;
+function checkRateLimit(req, res) {
+  const ip = req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const recent = (loginAttempts.get(ip) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (recent.length >= RATE_LIMIT_MAX) {
+    sendJson(res, 429, { error: 'Too many attempts. Please try again later.' });
+    return false;
+  }
+  recent.push(now);
+  loginAttempts.set(ip, recent);
+  return true;
+}
+// Prune stale rate-limit entries every 5 minutes to prevent memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, times] of loginAttempts) {
+    const recent = times.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+    if (recent.length === 0) loginAttempts.delete(ip);
+    else loginAttempts.set(ip, recent);
+  }
+}, 5 * 60 * 1000).unref();
+
+const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
+    let size = 0;
+    let settled = false;
     req.on('data', (chunk) => {
+      if (settled) return;
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        settled = true;
+        req.destroy();
+        const err = new Error('Request body too large');
+        err.statusCode = 413;
+        reject(err);
+        return;
+      }
       body += chunk;
     });
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
+    req.on('end', () => { if (!settled) { settled = true; resolve(body); } });
+    req.on('error', (err) => { if (!settled) { settled = true; reject(err); } });
   });
+}
+
+// Parse JSON body; sends 400 and returns null on failure (caller must check)
+async function parseJsonBody(req, res) {
+  const body = await readBody(req);
+  try {
+    return JSON.parse(body || '{}');
+  } catch (e) {
+    sendJson(res, 400, { error: 'Invalid JSON body' });
+    return null;
+  }
 }
 
 function readBrandsFileSync() {
@@ -292,62 +369,74 @@ async function findBrandGloballyByName(brandName) {
   });
 }
 
+function writeDataJson(res, metrics, campaignOverrides) {
+  const { clicks, impressions, ctr, cpc, cost } = metrics;
+  fs.readFile(DATA_JSON_PATH, 'utf8', (err, data) => {
+    let json;
+    if (err) {
+      if (err.code === 'ENOENT') {
+        json = { campaign: {} };
+      } else {
+        sendJson(res, 500, { error: 'Could not read data.json' });
+        return;
+      }
+    } else {
+      try {
+        json = JSON.parse(data);
+      } catch (e) {
+        sendJson(res, 500, { error: 'Invalid data.json' });
+        return;
+      }
+    }
+    if (!json.campaign) json.campaign = {};
+    json.campaign.clicks = formatWithCommas(clicks);
+    json.campaign.impressions = formatWithCommas(impressions);
+    json.campaign.ctr = ctr;
+    json.campaign.cpc = cpc;
+    json.campaign.cost = formatWithCommas(parseFloat(cost.toFixed(2)));
+    if (campaignOverrides) {
+      if (campaignOverrides.accountId != null) json.campaign.accountId = campaignOverrides.accountId;
+      if (campaignOverrides.date != null) json.campaign.date = campaignOverrides.date;
+      if (campaignOverrides.campaignName != null) json.campaign.campaignName = campaignOverrides.campaignName;
+      if (campaignOverrides.imagePath != null) json.campaign.imagePath = campaignOverrides.imagePath;
+      if (campaignOverrides.imageFilename != null) json.campaign.imageFilename = campaignOverrides.imageFilename;
+    }
+    fs.writeFile(DATA_JSON_PATH, JSON.stringify(json, null, 2), 'utf8', (writeErr) => {
+      if (writeErr) {
+        sendJson(res, 500, { error: 'Could not write data.json' });
+        return;
+      }
+      sendJson(res, 200, { success: true });
+    });
+  });
+}
+
 async function handleUpdateDataMongo(req, res, payload) {
   const { clicks, impressions, ctr, cpc, cost, brandName } = payload;
-  function writeDataJson(campaignOverrides) {
-    fs.readFile(DATA_JSON_PATH, 'utf8', (err, data) => {
-      let json;
-      if (err) {
-        if (err.code === 'ENOENT') {
-          json = { campaign: {} };
-        } else {
-          sendJson(res, 500, { error: 'Could not read data.json' });
-          return;
-        }
-      } else {
-        try {
-          json = JSON.parse(data);
-        } catch (e) {
-          sendJson(res, 500, { error: 'Invalid data.json' });
-          return;
-        }
-      }
-      if (!json.campaign) json.campaign = {};
-      json.campaign.clicks = formatWithCommas(clicks);
-      json.campaign.impressions = formatWithCommas(impressions);
-      json.campaign.ctr = ctr;
-      json.campaign.cpc = cpc;
-      json.campaign.cost = formatWithCommas(parseFloat(cost.toFixed(2)));
-      if (campaignOverrides) {
-        if (campaignOverrides.accountId != null) json.campaign.accountId = campaignOverrides.accountId;
-        if (campaignOverrides.date != null) json.campaign.date = campaignOverrides.date;
-        if (campaignOverrides.campaignName != null) json.campaign.campaignName = campaignOverrides.campaignName;
-        if (campaignOverrides.imagePath != null) json.campaign.imagePath = campaignOverrides.imagePath;
-        if (campaignOverrides.imageFilename != null) json.campaign.imageFilename = campaignOverrides.imageFilename;
-      }
-      fs.writeFile(DATA_JSON_PATH, JSON.stringify(json, null, 2), 'utf8', (writeErr) => {
-        if (writeErr) {
-          sendJson(res, 500, { error: 'Could not write data.json' });
-          return;
-        }
-        sendJson(res, 200, { success: true });
-      });
-    });
-  }
+  const metrics = { clicks, impressions, ctr, cpc, cost };
 
   if (!brandName || typeof brandName !== 'string' || !brandName.trim()) {
-    writeDataJson(null);
+    writeDataJson(res, metrics, null);
     return;
   }
 
   try {
     const brand = await findBrandGloballyByName(brandName);
     if (!brand || !brand.accountIdPrefix) {
-      writeDataJson(null);
+      writeDataJson(res, metrics, null);
       return;
     }
     const logoPath = brand.logoPath ? `/${String(brand.logoPath).replace(/^\//, '')}` : '';
-    writeDataJson({
+
+    // Save spend record to history — fire-and-forget, don't block response
+    getDb().collection('brand_spend_history').insertOne({
+      brandName: brand.name.trim(),
+      date: getYesterdayISTKey(),
+      cost: typeof cost === 'number' ? cost : parseFloat(cost),
+      timestamp: new Date(),
+    }).catch((e) => console.error('spend_history insert error:', e));
+
+    writeDataJson(res, metrics, {
       accountId: formatAccountId(brand.accountIdPrefix),
       date: getYesterdayIST(),
       campaignName: brand.name.trim(),
@@ -359,112 +448,60 @@ async function handleUpdateDataMongo(req, res, payload) {
   }
 }
 
-function handleUpdateData(req, res) {
+async function handleUpdateData(req, res) {
   if (!requireInternalSession(req, res)) return;
-  readBody(req).then((body) => {
-    let payload;
-    try {
-      payload = JSON.parse(body || '{}');
-    } catch (e) {
-      sendJson(res, 400, { error: 'Invalid JSON body' });
-      return;
-    }
-    const validationError = validateDataUpdate(payload);
-    if (validationError) {
-      sendJson(res, 400, { error: validationError });
-      return;
-    }
-    const { clicks, impressions, ctr, cpc, cost, brandName } = payload;
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
+  const validationError = validateDataUpdate(payload);
+  if (validationError) {
+    sendJson(res, 400, { error: validationError });
+    return;
+  }
+  const { clicks, impressions, ctr, cpc, cost, brandName } = payload;
+  const metrics = { clicks, impressions, ctr, cpc, cost };
 
-    if (isConnected()) {
-      handleUpdateDataMongo(req, res, payload);
+  if (isConnected()) {
+    await handleUpdateDataMongo(req, res, payload);
+    return;
+  }
+
+  if (!brandName || typeof brandName !== 'string' || !brandName.trim()) {
+    writeDataJson(res, metrics, null);
+    return;
+  }
+  readBrandsData((err, brandsData) => {
+    if (err) {
+      sendJson(res, 500, { error: 'Could not read brands' });
       return;
     }
-
-    function writeDataJson(campaignOverrides) {
-      fs.readFile(DATA_JSON_PATH, 'utf8', (err, data) => {
-        let json;
-        if (err) {
-          if (err.code === 'ENOENT') {
-            json = { campaign: {} };
-          } else {
-            sendJson(res, 500, { error: 'Could not read data.json' });
-            return;
-          }
-        } else {
-          try {
-            json = JSON.parse(data);
-          } catch (e) {
-            sendJson(res, 500, { error: 'Invalid data.json' });
-            return;
-          }
-        }
-        if (!json.campaign) json.campaign = {};
-        json.campaign.clicks = formatWithCommas(clicks);
-        json.campaign.impressions = formatWithCommas(impressions);
-        json.campaign.ctr = ctr;
-        json.campaign.cpc = cpc;
-        json.campaign.cost = formatWithCommas(parseFloat(cost.toFixed(2)));
-        if (campaignOverrides) {
-          if (campaignOverrides.accountId != null) json.campaign.accountId = campaignOverrides.accountId;
-          if (campaignOverrides.date != null) json.campaign.date = campaignOverrides.date;
-          if (campaignOverrides.campaignName != null) json.campaign.campaignName = campaignOverrides.campaignName;
-          if (campaignOverrides.imagePath != null) json.campaign.imagePath = campaignOverrides.imagePath;
-          if (campaignOverrides.imageFilename != null) json.campaign.imageFilename = campaignOverrides.imageFilename;
-        }
-        fs.writeFile(DATA_JSON_PATH, JSON.stringify(json, null, 2), 'utf8', (writeErr) => {
-          if (writeErr) {
-            sendJson(res, 500, { error: 'Could not write data.json' });
-            return;
-          }
-          sendJson(res, 200, { success: true });
-        });
-      });
-    }
-
-    if (!brandName || typeof brandName !== 'string' || !brandName.trim()) {
-      writeDataJson(null);
-      return;
-    }
-    readBrandsData((err, brandsData) => {
-      if (err) {
-        sendJson(res, 500, { error: 'Could not read brands' });
+    ensureBrandAccountId(brandsData, (ensureErr, data) => {
+      if (ensureErr || !data) {
+        sendJson(res, 500, { error: 'Could not resolve brands' });
         return;
       }
-      ensureBrandAccountId(brandsData, (ensureErr, data) => {
-        if (ensureErr || !data) {
-          sendJson(res, 500, { error: 'Could not resolve brands' });
-          return;
-        }
-        const brand = data.brands.find(
-          (b) => b.name && b.name.trim().toLowerCase() === String(brandName).trim().toLowerCase()
-        );
-        if (!brand || !brand.accountIdPrefix) {
-          writeDataJson(null);
-          return;
-        }
-        const logoPath = brand.logoPath ? `/${brand.logoPath.replace(/^\//, '')}` : '';
-        writeDataJson({
-          accountId: formatAccountId(brand.accountIdPrefix),
-          date: getYesterdayIST(),
-          campaignName: brand.name.trim(),
-          imagePath: logoPath || undefined,
-          imageFilename: logoPath ? path.basename(brand.logoPath) : undefined,
-        });
+      const brand = data.brands.find(
+        (b) => b.name && b.name.trim().toLowerCase() === String(brandName).trim().toLowerCase()
+      );
+      if (!brand || !brand.accountIdPrefix) {
+        writeDataJson(res, metrics, null);
+        return;
+      }
+      const logoPath = brand.logoPath ? `/${brand.logoPath.replace(/^\//, '')}` : '';
+      writeDataJson(res, metrics, {
+        accountId: formatAccountId(brand.accountIdPrefix),
+        date: getYesterdayIST(),
+        campaignName: brand.name.trim(),
+        imagePath: logoPath || undefined,
+        imageFilename: logoPath ? path.basename(brand.logoPath) : undefined,
       });
     });
   });
 }
 
 async function handleLogin(req, res) {
-  const body = await readBody(req);
-  let payload;
-  try {
-    payload = JSON.parse(body || '{}');
-  } catch (e) {
-    sendJson(res, 400, { error: 'Invalid request' });
-    return;
-  }
+  if (!checkRateLimit(req, res)) return;
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
   const { username, password } = payload;
   const userPassError = validateUserPass(payload);
   if (userPassError) {
@@ -526,7 +563,7 @@ async function handleLogin(req, res) {
       if (match) {
         const count = await usersCol.countDocuments();
         const ws = await db.collection('workspaces').insertOne({ createdAt: new Date() });
-        const passwordHash = await bcrypt.hash(password, 10);
+        const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
         const role = count === 0 ? 'admin' : 'user';
         const ins = await usersCol.insertOne({
           username: username.trim(),
@@ -602,14 +639,8 @@ async function handleInternalUsers(req, res) {
     sendJson(res, 403, { error: 'Forbidden' });
     return;
   }
-  const body = await readBody(req);
-  let payload;
-  try {
-    payload = JSON.parse(body || '{}');
-  } catch (e) {
-    sendJson(res, 400, { error: 'Invalid JSON body' });
-    return;
-  }
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
   const { username, password } = payload;
   const userPassError = validateUserPass(payload);
   if (userPassError) {
@@ -628,7 +659,7 @@ async function handleInternalUsers(req, res) {
     return;
   }
   const ws = await db.collection('workspaces').insertOne({ createdAt: new Date() });
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   await usersCol.insertOne({
     username: username.trim(),
     passwordHash,
@@ -715,7 +746,7 @@ async function deleteWorkspaceAndBrands(db, workspaceId) {
     const logoPath = path.join(PUBLIC_DIR, brand.logoPath);
     await db.collection('client_dashboard_users').deleteMany({ brandId: brand._id });
     await db.collection('brands').deleteOne({ _id: brand._id });
-    fs.unlink(logoPath, () => {});
+    safeUnlink(logoPath);
   }
   await db.collection('client_dashboard_users').deleteMany({ workspaceId: wid });
   await db.collection('workspaces').deleteOne({ _id: wid });
@@ -731,14 +762,8 @@ async function handleDeleteInternalUser(req, res) {
     sendJson(res, 403, { error: 'Forbidden' });
     return;
   }
-  const body = await readBody(req);
-  let payload;
-  try {
-    payload = JSON.parse(body || '{}');
-  } catch (e) {
-    sendJson(res, 400, { error: 'Invalid JSON body' });
-    return;
-  }
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
   const userId = payload.userId;
   if (!userId || typeof userId !== 'string') {
     sendJson(res, 400, { error: 'userId is required' });
@@ -790,14 +815,8 @@ async function handleChangePassword(req, res) {
     sendJson(res, 401, { error: 'Unauthorized' });
     return;
   }
-  const body = await readBody(req);
-  let payload;
-  try {
-    payload = JSON.parse(body || '{}');
-  } catch (e) {
-    sendJson(res, 400, { error: 'Invalid JSON body' });
-    return;
-  }
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
   const { currentPassword, newPassword } = payload;
   const passwordChangeError = validatePasswordChange(payload);
   if (passwordChangeError) {
@@ -816,7 +835,7 @@ async function handleChangePassword(req, res) {
     sendJson(res, 401, { error: 'Current password is incorrect' });
     return;
   }
-  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   try {
     await usersCol.updateOne({ _id: user._id }, { $set: { passwordHash } });
   } catch (e) {
@@ -937,7 +956,7 @@ async function handleAddBrandMongo(req, res, payload) {
 
   if (wantClient) {
     try {
-      const passwordHash = await bcrypt.hash(clientPassword, 10);
+      const passwordHash = await bcrypt.hash(clientPassword, BCRYPT_ROUNDS);
       await db.collection('client_dashboard_users').insertOne({
         username: clientUsername.trim(),
         passwordHash,
@@ -964,87 +983,80 @@ async function handleAddBrandMongo(req, res, payload) {
   sendJson(res, 200, { success: true });
 }
 
-function handleAddBrand(req, res) {
+async function handleAddBrand(req, res) {
   if (!requireInternalSession(req, res)) return;
-  readBody(req).then(async (body) => {
-    let payload;
-    try {
-      payload = JSON.parse(body || '{}');
-    } catch (e) {
-      sendJson(res, 400, { error: 'Invalid JSON body' });
-      return;
-    }
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
 
-    if (isConnected()) {
-      await handleAddBrandMongo(req, res, payload);
-      return;
-    }
+  if (isConnected()) {
+    await handleAddBrandMongo(req, res, payload);
+    return;
+  }
 
-    const { brandName, logo } = payload;
-    if (!brandName || typeof brandName !== 'string' || !brandName.trim()) {
-      sendJson(res, 400, { error: 'Brand name is required' });
+  const { brandName, logo } = payload;
+  if (!brandName || typeof brandName !== 'string' || !brandName.trim()) {
+    sendJson(res, 400, { error: 'Brand name is required' });
+    return;
+  }
+  if (!logo || typeof logo !== 'string' || !logo.startsWith('data:image/')) {
+    sendJson(res, 400, { error: 'Logo must be an image (data URL)' });
+    return;
+  }
+  let ext = 'png';
+  const m = logo.match(/^data:image\/(\w+);base64,/);
+  if (m) ext = m[1].replace('jpeg', 'jpg');
+  const base64 = logo.replace(/^data:image\/\w+;base64,/, '');
+  let buf;
+  try {
+    buf = Buffer.from(base64, 'base64');
+  } catch (e) {
+    sendJson(res, 400, { error: 'Invalid logo image data' });
+    return;
+  }
+  if (buf.length > 5 * 1024 * 1024) {
+    sendJson(res, 400, { error: 'Logo image too large (max 5MB)' });
+    return;
+  }
+  const slug = slugify(brandName);
+  const filename = `${slug}-${Date.now()}.${ext}`;
+  const logoPath = path.join(BRANDS_DIR, filename);
+  const logoUrlPath = `brands/${filename}`;
+  if (!fs.existsSync(BRANDS_DIR)) {
+    fs.mkdirSync(BRANDS_DIR, { recursive: true });
+  }
+  fs.writeFile(logoPath, buf, (writeFileErr) => {
+    if (writeFileErr) {
+      sendJson(res, 500, { error: 'Could not save logo file' });
       return;
     }
-    if (!logo || typeof logo !== 'string' || !logo.startsWith('data:image/')) {
-      sendJson(res, 400, { error: 'Logo must be an image (data URL)' });
-      return;
-    }
-    let ext = 'png';
-    const m = logo.match(/^data:image\/(\w+);base64,/);
-    if (m) ext = m[1].replace('jpeg', 'jpg');
-    let base64 = logo.replace(/^data:image\/\w+;base64,/, '');
-    let buf;
+    let brandsData = { brands: [] };
     try {
-      buf = Buffer.from(base64, 'base64');
+      const existing = fs.readFileSync(BRANDS_JSON_PATH, 'utf8');
+      brandsData = JSON.parse(existing);
     } catch (e) {
-      sendJson(res, 400, { error: 'Invalid logo image data' });
-      return;
-    }
-    if (buf.length > 5 * 1024 * 1024) {
-      sendJson(res, 400, { error: 'Logo image too large (max 5MB)' });
-      return;
-    }
-    const slug = slugify(brandName);
-    const filename = `${slug}-${Date.now()}.${ext}`;
-    const logoPath = path.join(BRANDS_DIR, filename);
-    const logoUrlPath = `brands/${filename}`;
-    if (!fs.existsSync(BRANDS_DIR)) {
-      fs.mkdirSync(BRANDS_DIR, { recursive: true });
-    }
-    fs.writeFile(logoPath, buf, (writeFileErr) => {
-      if (writeFileErr) {
-        sendJson(res, 500, { error: 'Could not save logo file' });
+      if (e.code !== 'ENOENT') {
+        sendJson(res, 500, { error: 'Could not read brands data' });
         return;
       }
-      let brandsData = { brands: [] };
-      try {
-        const existing = fs.readFileSync(BRANDS_JSON_PATH, 'utf8');
-        brandsData = JSON.parse(existing);
-      } catch (e) {
-        if (e.code !== 'ENOENT') {
-          sendJson(res, 500, { error: 'Could not read brands data' });
-          return;
-        }
+    }
+    if (!Array.isArray(brandsData.brands)) brandsData.brands = [];
+    const used = new Set(brandsData.brands.map((b) => b.accountIdPrefix).filter(Boolean));
+    let prefix = '';
+    do {
+      prefix = String(Math.floor(100000 + Math.random() * 900000)).slice(0, 6);
+    } while (used.has(prefix));
+    brandsData.brands.push({
+      name: brandName.trim(),
+      logoPath: logoUrlPath,
+      active: true,
+      accountIdPrefix: prefix,
+    });
+    fs.writeFile(BRANDS_JSON_PATH, JSON.stringify(brandsData, null, 2), 'utf8', (writeJsonErr) => {
+      if (writeJsonErr) {
+        sendJson(res, 500, { error: 'Could not save brand list' });
+        return;
       }
-      if (!Array.isArray(brandsData.brands)) brandsData.brands = [];
-      const used = new Set(brandsData.brands.map((b) => b.accountIdPrefix).filter(Boolean));
-      let prefix = '';
-      do {
-        prefix = String(Math.floor(100000 + Math.random() * 900000)).slice(0, 6);
-      } while (used.has(prefix));
-      brandsData.brands.push({
-        name: brandName.trim(),
-        logoPath: logoUrlPath,
-        active: true,
-        accountIdPrefix: prefix,
-      });
-      fs.writeFile(BRANDS_JSON_PATH, JSON.stringify(brandsData, null, 2), 'utf8', (writeJsonErr) => {
-        if (writeJsonErr) {
-          sendJson(res, 500, { error: 'Could not save brand list' });
-          return;
-        }
-        sendJson(res, 200, { success: true });
-      });
+      sendJson(res, 200, { success: true });
     });
   });
 }
@@ -1078,13 +1090,10 @@ async function handleGetBrands(req, res) {
 }
 
 async function handlePatchBrand(req, res) {
-  if (!requireInternalSession(req, res)) return;
+  const sess = requireInternalSession(req, res);
+  if (!sess) return;
   if (!isConnected()) {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-    });
-    req.on('end', () => {
+    readBody(req).then((body) => {
       let payload;
       try {
         payload = JSON.parse(body || '{}');
@@ -1115,23 +1124,14 @@ async function handlePatchBrand(req, res) {
           sendJson(res, 200, { success: true });
         });
       });
+    }).catch(() => {
+      sendJson(res, 413, { error: 'Request body too large' });
     });
     return;
   }
 
-  const sess = getInternalSession(req);
-  if (!sess) {
-    sendJson(res, 401, { error: 'Unauthorized' });
-    return;
-  }
-  const body = await readBody(req);
-  let payload;
-  try {
-    payload = JSON.parse(body || '{}');
-  } catch (e) {
-    sendJson(res, 400, { error: 'Invalid JSON body' });
-    return;
-  }
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
   const { index, active, brandId } = payload;
 
   if (sess.role === 'admin' && brandId != null && String(brandId).trim() !== '') {
@@ -1180,13 +1180,10 @@ async function handlePatchBrand(req, res) {
 }
 
 async function handleReplaceBrandLogo(req, res) {
-  if (!requireInternalSession(req, res)) return;
+  const sess = requireInternalSession(req, res);
+  if (!sess) return;
   if (!isConnected()) {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-    });
-    req.on('end', () => {
+    readBody(req).then((body) => {
       let payload;
       try {
         payload = JSON.parse(body || '{}');
@@ -1243,28 +1240,19 @@ async function handleReplaceBrandLogo(req, res) {
               sendJson(res, 500, { error: 'Could not update brand' });
               return;
             }
-            fs.unlink(oldPath, () => {});
+            safeUnlink(oldPath);
             sendJson(res, 200, { success: true, logoPath: newLogoUrlPath });
           });
         });
       });
+    }).catch(() => {
+      sendJson(res, 413, { error: 'Request body too large' });
     });
     return;
   }
 
-  const sess = getInternalSession(req);
-  if (!sess) {
-    sendJson(res, 401, { error: 'Unauthorized' });
-    return;
-  }
-  const body = await readBody(req);
-  let payload;
-  try {
-    payload = JSON.parse(body || '{}');
-  } catch (e) {
-    sendJson(res, 400, { error: 'Invalid JSON body' });
-    return;
-  }
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
   const { index, logo, brandId } = payload;
   if (!logo || typeof logo !== 'string' || !logo.startsWith('data:image/')) {
     sendJson(res, 400, { error: 'Body must include logo (image data URL)' });
@@ -1327,13 +1315,10 @@ async function handleReplaceBrandLogo(req, res) {
 }
 
 async function handleDeleteBrand(req, res) {
-  if (!requireInternalSession(req, res)) return;
+  const sess = requireInternalSession(req, res);
+  if (!sess) return;
   if (!isConnected()) {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-    });
-    req.on('end', () => {
+    readBody(req).then((body) => {
       let payload;
       try {
         payload = JSON.parse(body || '{}');
@@ -1362,27 +1347,18 @@ async function handleDeleteBrand(req, res) {
             sendJson(res, 500, { error: 'Could not update brands' });
             return;
           }
-          fs.unlink(logoPath, () => {});
+          safeUnlink(logoPath);
           sendJson(res, 200, { success: true });
         });
       });
+    }).catch(() => {
+      sendJson(res, 413, { error: 'Request body too large' });
     });
     return;
   }
 
-  const sess = getInternalSession(req);
-  if (!sess) {
-    sendJson(res, 401, { error: 'Unauthorized' });
-    return;
-  }
-  const body = await readBody(req);
-  let payload;
-  try {
-    payload = JSON.parse(body || '{}');
-  } catch (e) {
-    sendJson(res, 400, { error: 'Invalid JSON body' });
-    return;
-  }
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
   const { index, brandId } = payload;
   let brand = null;
 
@@ -1428,14 +1404,9 @@ async function handleClientLogin(req, res) {
     sendJson(res, 503, { error: 'MongoDB is not configured' });
     return;
   }
-  const body = await readBody(req);
-  let payload;
-  try {
-    payload = JSON.parse(body || '{}');
-  } catch (e) {
-    sendJson(res, 400, { error: 'Invalid JSON body' });
-    return;
-  }
+  if (!checkRateLimit(req, res)) return;
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
   const { username, password } = payload;
   const userPassError = validateUserPass(payload);
   if (userPassError) {
@@ -1494,6 +1465,104 @@ async function handleBrandLogo(req, res, urlPath) {
   res.end(asset.data.buffer ? Buffer.from(asset.data.buffer) : asset.data);
 }
 
+async function handleAdminSpendHistory(req, res) {
+  if (!isConnected()) {
+    mongoRequired(res);
+    return;
+  }
+  const sess = getInternalSession(req);
+  if (!sess || sess.role !== 'admin') {
+    sendJson(res, 403, { error: 'Forbidden' });
+    return;
+  }
+  const records = await getDb()
+    .collection('brand_spend_history')
+    .find({})
+    .sort({ date: -1, timestamp: -1 })
+    .limit(200)
+    .toArray();
+  sendJson(res, 200, {
+    history: records.map((r) => ({
+      brandName: r.brandName,
+      date: r.date,
+      cost: r.cost,
+    })),
+  });
+}
+
+async function handleArchiveBrands(req, res) {
+  if (!isConnected()) { mongoRequired(res); return; }
+  const sess = getInternalSession(req);
+  if (!sess || sess.role !== 'admin') { sendJson(res, 403, { error: 'Forbidden' }); return; }
+  const db = getDb();
+  const users = await db.collection('internal_users').find({}).toArray();
+  const widToOwner = new Map();
+  users.forEach((u) => { if (u.workspaceId) widToOwner.set(u.workspaceId.toString(), u.username); });
+  const allBrands = await db.collection('brands').find({}).sort({ createdAt: 1 }).toArray();
+  // Get the most recent spend date per brand
+  const latestSpend = await db.collection('brand_spend_history')
+    .aggregate([
+      { $sort: { brandId: 1, date: -1 } },
+      { $group: { _id: '$brandId', lastDate: { $first: '$date' }, lastCost: { $first: '$cost' } } },
+    ])
+    .toArray();
+  const spendMap = new Map();
+  latestSpend.forEach((s) => {
+    if (s._id) spendMap.set(s._id.toString(), { lastDate: s.lastDate, lastCost: s.lastCost });
+  });
+  const out = allBrands.map((b) => {
+    const spend = spendMap.get(b._id.toString()) || null;
+    return {
+      id: b._id.toString(),
+      name: b.name,
+      logoPath: b.logoPath || '',
+      active: b.active !== false,
+      ownerUsername: (b.workspaceId ? widToOwner.get(b.workspaceId.toString()) : null) || '—',
+      lastSpendDate: spend ? spend.lastDate : null,
+      lastSpendCost: spend ? spend.lastCost : null,
+    };
+  });
+  sendJson(res, 200, { brands: out });
+}
+
+async function handleArchiveHistory(req, res) {
+  if (!isConnected()) { mongoRequired(res); return; }
+  const sess = getInternalSession(req);
+  if (!sess || sess.role !== 'admin') { sendJson(res, 403, { error: 'Forbidden' }); return; }
+  const qs = new URL(req.url, 'http://localhost').searchParams;
+  const brandId = qs.get('brandId');
+  if (!brandId) { sendJson(res, 400, { error: 'brandId is required' }); return; }
+  let oid;
+  try { oid = new ObjectId(brandId); } catch (e) { sendJson(res, 400, { error: 'Invalid brandId' }); return; }
+  const records = await getDb().collection('brand_spend_history')
+    .find({ brandId: oid })
+    .sort({ date: -1 })
+    .toArray();
+  sendJson(res, 200, {
+    history: records.map((r) => ({
+      date: r.date,
+      cost: r.cost,
+      masterClicks: r.masterClicks || null,
+      conversionRate: r.conversionRate || null,
+    })),
+  });
+}
+
+function handleReportData(req, res) {
+  if (!requireInternalSession(req, res)) return;
+  fs.readFile(DATA_JSON_PATH, 'utf8', (err, data) => {
+    if (err) {
+      sendJson(res, 404, { error: 'No report data available yet' });
+      return;
+    }
+    try {
+      sendJson(res, 200, JSON.parse(data));
+    } catch (e) {
+      sendJson(res, 500, { error: 'Invalid report data' });
+    }
+  });
+}
+
 const apiRoutes = buildApiRoutes({
   handleLogin,
   handleLogout,
@@ -1510,9 +1579,19 @@ const apiRoutes = buildApiRoutes({
   handleReplaceBrandLogo,
   handleDeleteBrand,
   handleClientLogin,
+  handleAdminSpendHistory,
+  handleArchiveBrands,
+  handleArchiveHistory,
+  handleReportData,
 });
 
 const server = http.createServer((req, res) => {
+  const start = Date.now();
+  setSecurityHeaders(res);
+  res.on('finish', () => {
+    console.log(`${req.method} ${req.url} ${res.statusCode} ${Date.now() - start}ms`);
+  });
+
   let urlPath = req.url === '/' ? '/Login.html' : req.url;
   urlPath = urlPath.split('?')[0];
   if (req.method === 'GET' && /^\/api\/brands\/logo\/[a-f0-9]{24}$/i.test(urlPath)) {
@@ -1522,14 +1601,43 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  // Serve root-level data.json for final.html (which fetches it via relative URL)
+  if (req.method === 'GET' && urlPath === '/data.json') {
+    fs.readFile(DATA_JSON_PATH, (err, data) => {
+      if (err) {
+        res.setHeader('Content-Type', 'application/json');
+        res.writeHead(err.code === 'ENOENT' ? 404 : 500);
+        res.end('{}');
+        return;
+      }
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.writeHead(200);
+      res.end(data);
+    });
+    return;
+  }
+
   const routeKey = `${req.method} ${urlPath}`;
   const routeHandler = apiRoutes.get(routeKey);
   if (routeHandler) {
     Promise.resolve(routeHandler(req, res)).catch((e) => {
-      console.error(e);
-      sendJson(res, 500, { error: 'Error' });
+      if (e.statusCode === 413) {
+        sendJson(res, 413, { error: 'Request body too large' });
+      } else {
+        console.error(e);
+        sendJson(res, 500, { error: 'Error' });
+      }
     });
     return;
+  }
+
+  // final.html is a saved Google Ads page that requires external gstatic.com scripts
+  if (urlPath === '/final.html') {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://ssl.gstatic.com https://apis.google.com; connect-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://www.gstatic.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.gstatic.com https://lh3.googleusercontent.com;"
+    );
   }
 
   const relativePath = urlPath.replace(/^\//, '') || 'index.html';
@@ -1545,7 +1653,6 @@ const server = http.createServer((req, res) => {
   fs.readFile(filePath, (err, data) => {
     if (err) {
       if (err.code === 'ENOENT') {
-        console.error('Not found:', relativePath);
         const notFoundPath = path.join(PUBLIC_DIR, '404.html');
         fs.readFile(notFoundPath, (notFoundErr, notFoundData) => {
           if (notFoundErr) {
@@ -1600,6 +1707,25 @@ function startServer() {
   });
 }
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+  process.exit(1);
+});
+
+const { closeDb } = require('./db');
+function shutdown() {
+  console.log('Shutting down gracefully...');
+  server.close(() => {
+    closeDb().then(() => process.exit(0)).catch(() => process.exit(1));
+  });
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+
 (async () => {
   if (!SESSION_SECRET) {
     console.error('SESSION_SECRET is required. Set it in .env before starting the server.');
@@ -1623,4 +1749,110 @@ function startServer() {
     }
   }
   startServer();
+  startDailyCron();
 })();
+
+// ── Daily spend cron ────────────────────────────────────────────────────────
+// Runs at 23:59 IST every day. Fetches masterclicks + conversions from the
+// external API for today, then computes and stores cost for every active brand.
+let _lastCronDateKey = null;
+
+function getISTDateKey(d) {
+  var dt = new Date((d || new Date()).toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  return dt.getFullYear() + '-' +
+    String(dt.getMonth() + 1).padStart(2, '0') + '-' +
+    String(dt.getDate()).padStart(2, '0');
+}
+
+function getISTHHMM(d) {
+  var dt = new Date((d || new Date()).toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  return dt.getHours() * 100 + dt.getMinutes(); // e.g. 2359
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url, { method: 'GET' });
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' from ' + url);
+  return res.json();
+}
+
+async function runDailySpendCron(dateKey) {
+  if (!isConnected()) { console.log('[cron] MongoDB not connected — skipping daily spend run.'); return; }
+  console.log('[cron] Starting daily spend calculation for', dateKey);
+  try {
+    const API_BASE = 'https://admin.flipchat.link';
+    const SLUG = 'ipl2026';
+    const MIN_RATE = 0.05, MAX_RATE = 0.30;
+
+    // Fetch report + conversions in parallel
+    let reportData, convData;
+    try {
+      [reportData, convData] = await Promise.all([
+        fetchJson(API_BASE + '/api/reports/' + encodeURIComponent(SLUG) + '?date=' + encodeURIComponent(dateKey)),
+        fetchJson(API_BASE + '/api/conversions?date=' + encodeURIComponent(dateKey)),
+      ]);
+    } catch (e) {
+      console.error('[cron] API fetch failed:', e.message);
+      return;
+    }
+
+    const groupData = Array.isArray(reportData.groupData) ? reportData.groupData : [];
+    const conversions = Number(convData.conversions);
+    const stakeRow = groupData.find((r) => String(r.group || '').trim().toLowerCase() === 'stake');
+    const stakeClicks = stakeRow ? Number(stakeRow.clicks) || 0 : 0;
+
+    if (stakeClicks <= 0 || !Number.isFinite(conversions) || conversions <= 0) {
+      console.warn('[cron] Skipping — stakeClicks=%d conversions=%d', stakeClicks, conversions);
+      return;
+    }
+
+    const rawRate = conversions / stakeClicks;
+    const conversionRate = Math.max(MIN_RATE, Math.min(MAX_RATE, rawRate));
+
+    const db = getDb();
+    const allBrands = await db.collection('brands').find({ active: { $ne: false } }).toArray();
+    console.log('[cron] Processing %d active brands', allBrands.length);
+
+    const ops = [];
+    for (const brand of allBrands) {
+      const needle = brand.name.trim().toLowerCase();
+      const row = groupData.find((r) => String(r.group || '').trim().toLowerCase() === needle);
+      const masterClicks = row ? (Number(row.clicks) || 0) : 0;
+      const mult = Math.floor(Math.random() * 51) + 725; // 725-775
+      const cost = masterClicks * conversionRate * mult;
+
+      // Upsert — one record per brand per date
+      ops.push(db.collection('brand_spend_history').updateOne(
+        { brandId: brand._id, date: dateKey },
+        {
+          $set: {
+            brandId: brand._id,
+            brandName: brand.name.trim(),
+            date: dateKey,
+            cost,
+            masterClicks,
+            conversionRate,
+            timestamp: new Date(),
+          },
+        },
+        { upsert: true }
+      ));
+    }
+    await Promise.all(ops);
+    console.log('[cron] Daily spend saved for', allBrands.length, 'brands on', dateKey);
+  } catch (e) {
+    console.error('[cron] Error during daily spend run:', e);
+  }
+}
+
+function startDailyCron() {
+  setInterval(() => {
+    const now = new Date();
+    const hhmm = getISTHHMM(now);
+    const dateKey = getISTDateKey(now);
+    if (hhmm === 2359 && _lastCronDateKey !== dateKey) {
+      _lastCronDateKey = dateKey;
+      runDailySpendCron(dateKey).catch((e) => console.error('[cron] Unhandled:', e));
+    }
+  }, 60 * 1000).unref();
+  console.log('[cron] Daily spend cron scheduled (fires at 23:59 IST).');
+}

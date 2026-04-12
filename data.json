@@ -2,19 +2,19 @@
   "exportDate": "2025-09-12T17:11:56.261Z",
   "version": "1.0",
   "campaign": {
-    "accountId": "731-543-KVZONE",
+    "accountId": "775-909-KVZONE",
     "accountName": "MANAGER API ACCOUNT",
-    "campaignName": "Mahadev",
+    "campaignName": "KheloWin",
     "adGroupName": "Ad Group 1",
-    "date": "Apr 7, 2026",
-    "cpc": 10.32,
-    "cost": "24,910",
-    "ctr": 0.52,
+    "date": "Apr 11, 2026",
+    "cpc": 10.6,
+    "cost": "49,500",
+    "ctr": 0.46,
     "cpm": 0,
     "timestamp": "2025-09-12T17:11:56.261Z",
-    "clicks": "2,422",
-    "impressions": "465,769",
-    "imagePath": "/brands/mahadev-1775539049450.png",
-    "imageFilename": "mahadev-1775539049450.png"
+    "clicks": "4,717",
+    "impressions": "1,025,435",
+    "imagePath": "/api/brands/logo/69db7b9c1f8ba3bbf7159b36",
+    "imageFilename": "69db7b9c1f8ba3bbf7159b36"
   }
 }

@@ -19,7 +19,17 @@ function getDb() {
 }
 
 function isConnected() {
-  return !!db;
+  return !!db && !!client;
+}
+
+async function closeDb() {
+  if (client) {
+    try {
+      await client.close();
+    } catch (e) {
+      // ignore close errors during shutdown
+    }
+  }
 }
 
 async function ensureIndexes() {
@@ -29,6 +39,8 @@ async function ensureIndexes() {
   await db.collection('brand_assets').createIndex({ brandId: 1 }, { unique: true });
   await db.collection('client_dashboard_users').createIndex({ username: 1 }, { unique: true });
   await db.collection('client_dashboard_users').createIndex({ brandId: 1 });
+  await db.collection('brand_spend_history').createIndex({ date: -1, brandName: 1 });
+  await db.collection('brand_spend_history').createIndex({ brandId: 1, date: -1 });
 }
 
 async function bootstrapInitialAdmin() {
@@ -46,8 +58,9 @@ async function bootstrapInitialAdmin() {
   }
 
   const bcrypt = require('bcryptjs');
+  const BCRYPT_ROUNDS = 10;
   const ws = await db.collection('workspaces').insertOne({ createdAt: new Date() });
-  const passwordHash = await bcrypt.hash(p, 10);
+  const passwordHash = await bcrypt.hash(p, BCRYPT_ROUNDS);
   await users.insertOne({
     username: u.trim(),
     passwordHash,
@@ -63,6 +76,7 @@ module.exports = {
   connectMongo,
   getDb,
   isConnected,
+  closeDb,
   ObjectId,
   bootstrapInitialAdmin
 };

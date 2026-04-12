@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client spend dashboard — Kelvera</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    /* ── Page shell ─────────────────────────────────────── */
+    body {
+      font-family: "DM Sans", var(--font-sans);
+      display: block;
+      padding: 0;
+      margin: 0;
+    }
+
+    .cd-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+    }
+
+    .cd-card {
+      width: min(780px, 100%);
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: 28px;
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────── */
+    .cd-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--color-border);
+      background: var(--color-bg-card);
+    }
+
+    .cd-brand-ident {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .cd-brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      object-fit: contain;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      flex-shrink: 0;
+    }
+
+    .cd-brand-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cd-topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .cd-btn-refresh {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      background: var(--color-surface);
+      color: var(--color-text-muted);
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .cd-btn-refresh:hover {
+      background: var(--color-primary-light);
+      border-color: var(--color-primary);
+      color: var(--color-accent);
+    }
+    .cd-btn-refresh:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .cd-btn-refresh svg {
+      flex-shrink: 0;
+      transition: transform 0.4s ease;
+    }
+    .cd-btn-refresh.spinning svg {
+      animation: cd-spin 0.7s linear infinite;
+    }
+    @keyframes cd-spin { to { transform: rotate(360deg); } }
+
+    .cd-btn-logout {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--color-text-muted);
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .cd-btn-logout:hover {
+      background: var(--color-status-error-bg);
+      color: var(--color-status-error-text);
+    }
+
+    /* ── Banners ─────────────────────────────────────────── */
+    .cd-banners {
+      padding: 0 24px;
+    }
+
+    .cd-alert {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    .cd-alert.show { display: block; }
+    .cd-alert.error {
+      background: var(--color-status-error-bg);
+      border: 1px solid var(--color-status-error-border);
+      color: var(--color-status-error-text);
+    }
+    .cd-alert.warn {
+      background: var(--color-status-warn-bg);
+      border: 1px solid var(--color-status-warn-border);
+      color: var(--color-status-warn-text);
+    }
+
+    /* ── Hero ────────────────────────────────────────────── */
+    .cd-hero {
+      padding: 32px 28px 24px;
+      background: linear-gradient(145deg, rgba(120, 184, 138, 0.1), rgba(128, 180, 128, 0.06));
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .cd-hero-inner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .cd-hero-eyebrow {
+      display: inline-flex;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(120, 184, 138, 0.18);
+      color: var(--color-accent);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .cd-hero-title {
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--color-text);
+      margin: 0;
+    }
+
+    .cd-hero-date-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      background: var(--color-bg-white);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+      flex-shrink: 0;
+      align-self: center;
+    }
+    .cd-hero-date-pill svg { color: var(--color-accent); flex-shrink: 0; }
+
+    .cd-loading {
+      padding: 12px 28px 0;
+      font-size: 0.875rem;
+      color: var(--color-text-muted);
+      min-height: 1.5em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cd-loading-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      animation: cd-pulse 1.2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes cd-pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+
+    /* ── Metrics grid ────────────────────────────────────── */
+    .cd-metrics {
+      padding: 24px 24px 28px;
+    }
+
+    .cd-metrics-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-text-dim);
+      margin-bottom: 16px;
+      padding-left: 4px;
+    }
+
+    /* Cost — full-width hero card */
+    .cd-cost-card {
+      background: linear-gradient(135deg, rgba(120, 184, 138, 0.12) 0%, rgba(79, 139, 97, 0.08) 100%);
+      border: 1px solid rgba(120, 184, 138, 0.35);
+      border-radius: 20px;
+      padding: 24px 28px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .cd-cost-left {}
+
+    .cd-cost-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+    }
+
+    .cd-cost-value {
+      font-size: clamp(2rem, 6vw, 2.8rem);
+      font-weight: 800;
+      color: var(--color-text);
+      line-height: 1;
+      margin-top: 6px;
+      letter-spacing: -0.02em;
+    }
+
+    .cd-cost-date {
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
+      margin-top: 6px;
+    }
+
+    .cd-cost-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: rgba(120, 184, 138, 0.2);
+      border: 1px solid rgba(120, 184, 138, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-accent);
+      flex-shrink: 0;
+    }
+
+    /* Secondary metrics grid */
+    .cd-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .cd-metric-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      padding: 18px 16px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .cd-metric-card:hover {
+      border-color: rgba(120, 184, 138, 0.5);
+      box-shadow: 0 2px 12px rgba(120, 184, 138, 0.1);
+    }
+
+    .cd-metric-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--color-text-dim);
+    }
+
+    .cd-metric-value {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--color-text);
+      margin-top: 6px;
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+    }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    .cd-footer {
+      padding: 14px 28px 18px;
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cd-footer-text {
+      font-size: 0.75rem;
+      color: var(--color-text-dim);
+      text-align: center;
+    }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .cd-shell { padding: 12px 10px 40px; }
+      .cd-card { border-radius: 20px; }
+      .cd-topbar { padding: 14px 18px; }
+      .cd-btn-logout .cd-logout-text { display: none; }
+      .cd-hero { padding: 24px 18px 20px; }
+      .cd-metrics { padding: 18px 14px 22px; }
+      .cd-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .cd-cost-card { padding: 20px 18px; }
+      .cd-cost-icon { display: none; }
+      .cd-banners { padding: 0 14px; }
+      .cd-loading { padding: 10px 18px 0; }
+    }
+
+    @media (max-width: 360px) {
+      .cd-metrics-grid { grid-template-columns: 1fr 1fr; }
+      .cd-topbar { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <div class="cd-shell">
+    <div class="cd-card">
+
+      <!-- Top bar -->
+      <div class="cd-topbar">
+        <div class="cd-brand-ident">
+          <img id="brandBanner" class="cd-brand-logo" alt="" />
+          <span class="cd-brand-name" id="brandTitle">—</span>
+        </div>
+        <div class="cd-topbar-actions">
+          <button type="button" class="cd-btn-refresh" id="refreshBtn" aria-label="Refresh data">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M1 4.5A7 7 0 0 1 13.5 3M15 11.5A7 7 0 0 1 2.5 13"/>
+              <polyline points="1 1 1 4.5 4.5 4.5"/>
+              <polyline points="15 15 15 11.5 11.5 11.5"/>
+            </svg>
+            Refresh
+          </button>
+          <a href="#" class="cd-btn-logout" id="logoutLink" role="button">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>
+              <polyline points="11 11 14 8 11 5"/>
+              <line x1="14" y1="8" x2="6" y2="8"/>
+            </svg>
+            <span class="cd-logout-text">Log out</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Banners -->
+      <div class="cd-banners">
+        <p class="cd-alert error" id="msgError" role="alert"></p>
+        <p class="cd-alert warn" id="msgWarn"></p>
+      </div>
+
+      <!-- Loading indicator -->
+      <p class="cd-loading" id="loadingLine"></p>
+
+      <!-- Hero -->
+      <div class="cd-hero">
+        <div class="cd-hero-inner">
+          <div>
+            <div class="cd-hero-eyebrow">Spend Update</div>
+            <h1 class="cd-hero-title" id="spendTitle">—</h1>
+          </div>
+          <div class="cd-hero-date-pill">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="3" width="12" height="12" rx="2"/>
+              <line x1="2" y1="7" x2="14" y2="7"/>
+              <line x1="5" y1="1" x2="5" y2="4"/>
+              <line x1="11" y1="1" x2="11" y2="4"/>
+            </svg>
+            <span id="todayDate">—</span>
+          </div>
+        </div>
+        <p class="cd-cost-date" id="reportMeta" style="margin-top: 8px;"></p>
+      </div>
+
+      <!-- Metrics -->
+      <div class="cd-metrics">
+        <p class="cd-metrics-label">Today's performance</p>
+
+        <!-- Cost hero card -->
+        <div class="cd-cost-card">
+          <div class="cd-cost-left">
+            <div class="cd-cost-label">Total Cost</div>
+            <div class="cd-cost-value" id="v-cost">—</div>
+            <div class="cd-cost-date" id="v-date">—</div>
+          </div>
+          <div class="cd-cost-icon" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Secondary metrics -->
+        <div class="cd-metrics-grid">
+          <div class="cd-metric-card">
+            <div class="cd-metric-label">CPC</div>
+            <div class="cd-metric-value" id="v-cpc">—</div>
+          </div>
+          <div class="cd-metric-card">
+            <div class="cd-metric-label">CTR</div>
+            <div class="cd-metric-value" id="v-ctr">—</div>
+          </div>
+          <div class="cd-metric-card">
+            <div class="cd-metric-label">Clicks</div>
+            <div class="cd-metric-value" id="v-clicks">—</div>
+          </div>
+          <div class="cd-metric-card">
+            <div class="cd-metric-label">Impressions</div>
+            <div class="cd-metric-value" id="v-impressions">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="cd-footer">
+        <p class="cd-footer-text">Powered by Kelvera &mdash; Data is indicative and updates daily (IST)</p>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/js/utils.js"></script>
+  <script src="/js/report-api.js"></script>
+  <script>
+    (function() {
+      const CLIENT_SLUG = "ipl2026";
+
+      const brandName = sessionStorage.getItem("clientBrandName");
+      const logoPath = sessionStorage.getItem("clientLogoPath");
+      if (!brandName || !logoPath) {
+        window.location.href = "/ClientLogin.html";
+        return;
+      }
+
+      const el = (id) => document.getElementById(id);
+      const inrFormat = new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 2
+      });
+      const intFormat = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+
+      function getMasterClicksForBrand(groupData, name) {
+        if (!Array.isArray(groupData) || !name) return { clicks: 0, matched: false };
+        const needle = String(name).trim().toLowerCase();
+        const row = groupData.find(function (r) {
+          return String(r.group || "").trim().toLowerCase() === needle;
+        });
+        if (!row) return { clicks: 0, matched: false };
+        const c = Number(row.clicks);
+        return {
+          clicks: Number.isFinite(c) && c >= 0 ? c : 0,
+          matched: true
+        };
+      }
+
+      function reportDateWarning(reportData, dateKey) {
+        if (!reportData) return false;
+        if (reportData.dateKey != null && String(reportData.dateKey) !== dateKey) return true;
+        if (typeof reportData.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(reportData.date)) {
+          return reportData.date !== dateKey;
+        }
+        return false;
+      }
+
+      const MIN_CONV_RATE = 0.05;
+      const MAX_CONV_RATE = 0.30;
+      const CACHE_KEY = "cd_cache_" + brandName;
+
+      function randomMultiplier() {
+        return Math.floor(Math.random() * 51) + 725;
+      }
+
+      function readCache() {
+        try {
+          const raw = sessionStorage.getItem(CACHE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function writeCache(dateKey, conversionMarker, values) {
+        try {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            dateKey,
+            conversionMarker,
+            ...values
+          }));
+        } catch (e) {
+          // sessionStorage unavailable — gracefully degrade
+        }
+      }
+
+      function showError(text) {
+        const m = el("msgError");
+        const w = el("msgWarn");
+        w.classList.remove("show");
+        w.textContent = "";
+        if (text) {
+          m.textContent = text;
+          m.classList.add("show", "error");
+        } else {
+          m.textContent = "";
+          m.classList.remove("show", "error");
+        }
+      }
+
+      function showWarn(text) {
+        const w = el("msgWarn");
+        if (text) {
+          w.textContent = text;
+          w.classList.add("show");
+        } else {
+          w.textContent = "";
+          w.classList.remove("show");
+        }
+      }
+
+      function showWarnings(list) {
+        const parts = list.filter(Boolean);
+        showWarn(parts.length ? parts.join(" ") : "");
+      }
+
+      function setLoading(loading) {
+        const lineEl = el("loadingLine");
+        const btn = el("refreshBtn");
+        if (loading) {
+          lineEl.innerHTML = '<span class="cd-loading-dot" aria-hidden="true"></span>Loading report data\u2026';
+          btn.classList.add("spinning");
+        } else {
+          lineEl.textContent = "";
+          btn.classList.remove("spinning");
+        }
+        btn.disabled = loading;
+      }
+
+      function clearDerived() {
+        el("v-cost").textContent = "—";
+        el("v-cpc").textContent = "—";
+        el("v-ctr").textContent = "—";
+        el("v-clicks").textContent = "—";
+        el("v-impressions").textContent = "—";
+      }
+
+      async function runRefresh() {
+        const dateKey = getIstDateKey();
+
+        showError("");
+        showWarn("");
+        setLoading(true);
+        clearDerived();
+        el("todayDate").textContent = formatIstLongFromKey(dateKey);
+        el("v-date").textContent = formatIstLongFromKey(dateKey);
+        el("reportMeta").textContent = "";
+
+        try {
+          const warnings = [];
+          const reportRes = await tryFetchReport(CLIENT_SLUG, dateKey);
+          if (!reportRes.ok || !reportRes.data) {
+            showError(reportRes.message || "Could not load report.");
+            setLoading(false);
+            return;
+          }
+
+          const rep = reportRes.data;
+          if (reportRes.usedUndatedFallback) {
+            warnings.push("Report API did not accept a date parameter; showing the latest available report. Confirm the date matches your selection.");
+          }
+          if (reportDateWarning(rep, dateKey)) {
+            warnings.push("Report date may not match your selection—the remote API might only return the latest day.");
+          }
+
+          const groupData = rep.groupData;
+          const master = getMasterClicksForBrand(groupData, brandName);
+          if (!master.matched) {
+            showError('No group named "' + brandName + '" in the report for this date. Check that your brand name matches the agent group name.');
+            setLoading(false);
+            return;
+          }
+
+          const convRes = await fetchConversionsForDate(dateKey);
+          if (!convRes.ok) {
+            showError(convRes.message || "Could not load conversions.");
+            setLoading(false);
+            return;
+          }
+          if (convRes.dateMismatch) {
+            warnings.push("Conversions date did not match the selected day. Conversion rate may be unavailable.");
+          }
+          if (convRes.usedUndatedFallback && !convRes.dateMismatch) {
+            warnings.push("Conversions API may have ignored the date parameter; totals are for the date the server returned.");
+          }
+
+          const stakeClicks = getStakeClicks(groupData);
+          let conversionRate = 0;
+          if (convRes.data && stakeClicks > 0) {
+            const rawRate = convRes.data.conversions / stakeClicks;
+            conversionRate = Math.max(MIN_CONV_RATE, Math.min(MAX_CONV_RATE, rawRate));
+          } else {
+            if (!convRes.data && !convRes.dateMismatch) {
+              warnings.push("Conversion data missing for this date; derived cost may be zero.");
+            }
+            if (stakeClicks <= 0) {
+              warnings.push("Stake group clicks missing or zero; conversion rate unavailable.");
+            }
+          }
+
+          // Build a cache marker from the inputs that drive derived calculations.
+          // If either changes, we regenerate; otherwise reuse cached values.
+          const conversionMarker = convRes.data
+            ? convRes.data.conversions + "|" + stakeClicks
+            : "0|0";
+
+          const cached = readCache();
+          let cost, cpc, ctrPct, derivedClicks, impressions;
+
+          if (
+            cached &&
+            cached.dateKey === dateKey &&
+            cached.conversionMarker === conversionMarker &&
+            Number.isFinite(cached.cost)
+          ) {
+            // Cache hit — reuse stable values
+            cost = cached.cost;
+            cpc = cached.cpc;
+            ctrPct = cached.ctr;
+            derivedClicks = cached.clicks;
+            impressions = cached.impressions;
+          } else {
+            // Cache miss — compute fresh random values and store them
+            const mult = randomMultiplier();
+            const costRaw = master.clicks * conversionRate * mult;
+            cpc = randomInRange(9, 11, 2);
+            ctrPct = randomInRange(0.4, 0.6, 2);
+            cost = costRaw;
+            derivedClicks = Math.round(cost / cpc);
+            impressions = ctrPct > 0 && derivedClicks > 0
+              ? Math.round((derivedClicks / ctrPct) * 100)
+              : 0;
+            writeCache(dateKey, conversionMarker, { cost, cpc, ctr: ctrPct, clicks: derivedClicks, impressions });
+          }
+
+          showWarnings(warnings);
+
+          el("v-cost").textContent = inrFormat.format(cost);
+          el("v-cpc").textContent = "₹" + cpc.toFixed(2);
+          el("v-ctr").textContent = ctrPct.toFixed(2) + "%";
+          el("v-clicks").textContent = intFormat.format(derivedClicks);
+          el("v-impressions").textContent = intFormat.format(impressions);
+        } catch (e) {
+          showError("Something went wrong. Please try again.");
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      el("brandTitle").textContent = brandName;
+      el("spendTitle").textContent = brandName;
+      const img = el("brandBanner");
+      img.src = "/" + String(logoPath).replace(/^\//, "");
+      img.alt = brandName;
+      img.onerror = function() { img.style.display = "none"; };
+
+      el("logoutLink").addEventListener("click", function (e) {
+        e.preventDefault();
+        sessionStorage.removeItem(CACHE_KEY);
+        sessionStorage.removeItem("clientBrandName");
+        sessionStorage.removeItem("clientLogoPath");
+        sessionStorage.removeItem("clientUsername");
+        window.location.href = "/ClientLogin.html";
+      });
+
+      el("refreshBtn").addEventListener("click", runRefresh);
+
+      void runRefresh();
+    })();
+  </script>
+</body>
+</html>

@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reporting — Kelvera G-Ads Reporting</title>
+    <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <nav class="navbar">
         <div class="nav-left">
             <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
@@ -20,6 +22,7 @@
                 <a href="/Reporting.html" class="active">Reporting</a>
                 <a href="/Users.html" data-nav-admin-only>Team</a>
                 <a href="/saver.html">Calculator</a>
+                <a href="/Archive.html" data-nav-admin-only>Archive</a>
             </div>
         </div>
         <div class="nav-right">
@@ -44,7 +47,7 @@
             </div>
         </div>
     </nav>
-    <main class="main report-page">
+    <main class="main report-page" id="main-content">
         <div class="container">
             <header class="page-header">
                 <h1 class="page-title">Reporting</h1>
@@ -72,26 +75,15 @@
         })();
     </script>
     <script src="/js/internal-nav.js"></script>
+    <script src="/js/utils.js"></script>
     <script src="/js/internal-user-menu.js"></script>
     <script>
-        function normalizeLogoSrc(logoPath) {
-            if (!logoPath) return '';
-            var s = String(logoPath).trim();
-            if (!s) return '';
-            if (/^https?:\/\//i.test(s) || s.startsWith('/')) return s;
-            return '/' + s.replace(/^\/+/, '');
-        }
-
-        function randomInRange(min, max, decimals) {
-            decimals = decimals === undefined ? 2 : decimals;
-            var value = Math.random() * (max - min) + min;
-            return parseFloat(value.toFixed(decimals));
-        }
 
         function calculateAndSave(costInput, btn, statusEl, brandName) {
             var initialSpend = parseFloat(costInput.value);
             if (isNaN(initialSpend) || initialSpend <= 0) {
-                alert('Please enter a valid cost greater than 0');
+                statusEl.style.display = 'block';
+                statusEl.textContent = 'Please enter a valid cost greater than 0';
                 return;
             }
             statusEl.style.display = 'none';
@@ -120,6 +112,7 @@
             fetch('/api/update-data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(body)
             })
             .then(function(res) { return res.json(); })

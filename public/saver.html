@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculator — Kelvera G-Ads Reporting</title>
+    <meta name="robots" content="noindex, nofollow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body class="calc-page">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <nav class="navbar">
         <div class="nav-left">
             <a href="/Dashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
@@ -20,6 +22,7 @@
                 <a href="/Reporting.html">Reporting</a>
                 <a href="/Users.html" data-nav-admin-only>Team</a>
                 <a href="/saver.html" class="active">Calculator</a>
+                <a href="/Archive.html" data-nav-admin-only>Archive</a>
             </div>
         </div>
         <div class="nav-right">
@@ -44,7 +47,7 @@
             </div>
         </div>
     </nav>
-    <main class="main">
+    <main class="main" id="main-content">
         <div class="container">
             <h1 class="page-title">Ad Metrics Calculator</h1>
             <div class="input-group">
@@ -52,6 +55,7 @@
                 <input type="number" id="initialSpend" placeholder="e.g. 20000" min="0" step="0.01">
             </div>
             <button type="button" class="btn" onclick="calculate()">Calculate metrics</button>
+            <div id="calcStatus" class="error-msg" role="alert"></div>
             <button type="button" class="btn btn-download" id="downloadBtn" onclick="downloadJSON()" style="display: none;">Download JSON</button>
             <button type="button" class="btn btn-download" id="downloadDataJsonBtn" onclick="downloadAsDataJson()" title="Save as data.json in gads-report folder to replace existing" style="display: none;">Download as data.json</button>
             <div class="results" id="results">
@@ -92,14 +96,10 @@
         })();
     </script>
     <script src="/js/internal-nav.js"></script>
+    <script src="/js/utils.js"></script>
     <script src="/js/internal-user-menu.js"></script>
     <script>
         let calculatedData = null;
-
-        function randomInRange(min, max, decimals = 2) {
-            const value = Math.random() * (max - min) + min;
-            return parseFloat(value.toFixed(decimals));
-        }
 
         function formatNumberWithCommas(num) {
             return num.toLocaleString('en-US');
@@ -109,9 +109,12 @@
             const initialSpend = parseFloat(document.getElementById('initialSpend').value);
 
             if (isNaN(initialSpend) || initialSpend <= 0) {
-                alert('Please enter a valid spend amount greater than 0');
+                var st = document.getElementById('calcStatus');
+                st.textContent = 'Please enter a valid spend amount greater than 0';
+                st.classList.add('show');
                 return;
             }
+            document.getElementById('calcStatus').classList.remove('show');
 
             const cpc = randomInRange(9, 11, 2);
             const clicks = Math.round(initialSpend / cpc);
@@ -174,7 +177,9 @@
 
         function downloadJSON() {
             if (!calculatedData) {
-                alert('Please calculate metrics first');
+                var st = document.getElementById('calcStatus');
+                st.textContent = 'Please calculate metrics first';
+                st.classList.add('show');
                 return;
             }
             const jsonData = buildExportJSON();
@@ -191,7 +196,9 @@
 
         function downloadAsDataJson() {
             if (!calculatedData) {
-                alert('Please calculate metrics first');
+                var st = document.getElementById('calcStatus');
+                st.textContent = 'Please calculate metrics first';
+                st.classList.add('show');
                 return;
             }
             const jsonData = buildExportJSON();

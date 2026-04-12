@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archive — Kelvera G-Ads Reporting</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        body { font-family: "DM Sans", var(--font-sans); display: flex; flex-direction: column; }
+
+        .main {
+            flex: 1;
+            padding: 32px 24px 56px;
+            max-width: 1100px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* ── Page header ── */
+        .arc-page-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .arc-page-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--color-text);
+            letter-spacing: -0.02em;
+            margin: 0 0 4px;
+        }
+        .arc-page-subtitle {
+            font-size: 0.875rem;
+            color: var(--color-text-muted);
+            margin: 0;
+        }
+        .arc-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 16px;
+            border: 1px solid var(--color-border);
+            border-radius: 9px;
+            background: var(--color-surface);
+            color: var(--color-text-muted);
+            font: inherit;
+            font-size: 0.8375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .arc-back-btn:hover {
+            background: var(--color-primary-light);
+            border-color: var(--color-primary);
+            color: var(--color-accent);
+        }
+
+        /* ── Card ── */
+        .arc-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(86,117,72,0.08);
+            overflow: hidden;
+        }
+
+        .arc-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--color-border);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .arc-card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin: 0;
+        }
+        .arc-card-subtitle {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            margin: 2px 0 0;
+        }
+        .arc-refresh-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid var(--color-border);
+            border-radius: 9px;
+            background: var(--color-surface);
+            color: var(--color-text-muted);
+            font: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .arc-refresh-btn:hover {
+            background: var(--color-primary-light);
+            border-color: var(--color-primary);
+            color: var(--color-accent);
+        }
+        .arc-refresh-btn.spinning svg { animation: arc-spin 0.6s linear infinite; }
+        @keyframes arc-spin { to { transform: rotate(360deg); } }
+
+        /* ── Table ── */
+        .arc-table-wrap { overflow-x: auto; }
+
+        .arc-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .arc-table thead th {
+            padding: 11px 20px;
+            background: var(--color-bg-surface-light);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-text-dim);
+            text-align: left;
+            border-bottom: 1px solid var(--color-border);
+            white-space: nowrap;
+        }
+        .arc-table thead th.right { text-align: right; }
+        .arc-table thead th.center { text-align: center; }
+        .arc-table tbody tr {
+            border-bottom: 1px solid var(--color-border);
+            transition: background 0.1s;
+        }
+        .arc-table tbody tr:last-child { border-bottom: none; }
+        .arc-table tbody td {
+            padding: 13px 20px;
+            font-size: 0.875rem;
+            color: var(--color-text);
+            vertical-align: middle;
+        }
+        .arc-table tbody td.right { text-align: right; }
+        .arc-table tbody td.center { text-align: center; }
+
+        /* clickable brand rows */
+        .arc-brand-row { cursor: pointer; }
+        .arc-brand-row:hover { background: var(--color-bg-surface-light); }
+
+        /* ── Brand cell ── */
+        .arc-brand-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .arc-logo-wrap {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            overflow: hidden;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .arc-logo-wrap img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+        .arc-brand-name { font-weight: 600; }
+        .arc-brand-hint {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            margin-top: 1px;
+        }
+
+        /* ── Status badges ── */
+        .arc-status {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+        .arc-status.active {
+            background: rgba(120,184,138,0.15);
+            border: 1px solid rgba(120,184,138,0.3);
+            color: var(--color-accent);
+        }
+        .arc-status.inactive {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--color-border);
+            color: var(--color-text-muted);
+        }
+
+        /* ── Cost badge ── */
+        .arc-cost-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 6px;
+            background: rgba(120, 184, 138, 0.12);
+            border: 1px solid rgba(120, 184, 138, 0.25);
+            color: var(--color-accent);
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+        .arc-date-text {
+            color: var(--color-text-muted);
+            font-size: 0.82rem;
+        }
+        .arc-no-history {
+            color: var(--color-text-muted);
+            font-size: 0.8rem;
+            font-style: italic;
+        }
+
+        /* ── Delete button ── */
+        .arc-delete-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid rgba(239,68,68,0.4);
+            background: transparent;
+            color: #f87171;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            flex-shrink: 0;
+        }
+        .arc-delete-btn:hover {
+            background: rgba(239,68,68,0.12);
+            border-color: #f87171;
+        }
+
+        /* ── State rows ── */
+        .arc-state-row td {
+            padding: 48px 20px;
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: 0.875rem;
+        }
+        .arc-state-icon {
+            font-size: 1.8rem;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        /* ── History view ── */
+        #historyView { display: none; }
+        .arc-history-brand-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .arc-history-logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .arc-history-logo img { width: 40px; height: 40px; object-fit: contain; }
+        .arc-history-brand-name { font-size: 1.25rem; font-weight: 700; color: var(--color-text); }
+        .arc-history-brand-owner { font-size: 0.8rem; color: var(--color-text-muted); margin-top: 2px; }
+
+        .arc-conv-rate {
+            font-size: 0.82rem;
+            color: var(--color-text-muted);
+        }
+
+        @media (max-width: 768px) {
+            .main { padding: 20px 14px 40px; }
+            .arc-card-header { padding: 16px 16px 12px; }
+            .arc-table thead th,
+            .arc-table tbody td { padding: 11px 14px; }
+        }
+    </style>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/AdminDashboard.html" data-internal-home class="brand">Kelvera G-Ads Reporting</a>
+            <div class="nav-links">
+                <a href="/AdminDashboard.html" data-internal-home>Dashboard</a>
+                <a href="/AddBrand.html">Add Brand</a>
+                <a href="/Directory.html">Directory</a>
+                <a href="/Reporting.html">Reporting</a>
+                <a href="/Users.html">Team</a>
+                <a href="/saver.html">Calculator</a>
+                <a href="/Archive.html" class="active">Archive</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <div class="nav-user-menu" id="navUserMenu">
+                <button type="button" class="nav-user-trigger" id="navUserTrigger" aria-expanded="false" aria-haspopup="true">
+                    <span class="username nav-user-name" id="navUsername">—</span>
+                    <span class="nav-user-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="nav-user-dropdown" id="navUserDropdown" role="menu" hidden></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main" id="main-content">
+
+        <!-- Brands list view -->
+        <div id="brandsView">
+            <div class="arc-page-header">
+                <div>
+                    <h1 class="arc-page-title">Archive</h1>
+                    <p class="arc-page-subtitle">All brands and their daily spend history. Click a brand to view its history.</p>
+                </div>
+            </div>
+
+            <div class="arc-card">
+                <div class="arc-card-header">
+                    <div>
+                        <h2 class="arc-card-title">All Brands</h2>
+                        <p class="arc-card-subtitle">History updated at 23:59 IST daily · Click any row to see spend history</p>
+                    </div>
+                    <button type="button" class="arc-refresh-btn" id="brandsRefreshBtn" aria-label="Refresh brands">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M1 4.5A7 7 0 0 1 13.5 3M15 11.5A7 7 0 0 1 2.5 13"/>
+                            <polyline points="1 1 1 4.5 4.5 4.5"/>
+                            <polyline points="15 15 15 11.5 11.5 11.5"/>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+                <div class="arc-table-wrap">
+                    <table class="arc-table">
+                        <thead>
+                            <tr>
+                                <th>Brand</th>
+                                <th>Owner</th>
+                                <th class="center">Status</th>
+                                <th>Last Spend Date</th>
+                                <th class="right">Last Cost</th>
+                                <th class="right">Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brandsTableBody">
+                            <tr class="arc-state-row"><td colspan="6"><span class="arc-state-icon">⏳</span>Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- History detail view -->
+        <div id="historyView">
+            <div class="arc-page-header">
+                <div class="arc-history-brand-header">
+                    <div class="arc-history-logo" id="historyLogo">
+                        <img id="historyLogoImg" src="" alt="" style="display:none;">
+                    </div>
+                    <div>
+                        <div class="arc-history-brand-name" id="historyBrandName">—</div>
+                        <div class="arc-history-brand-owner" id="historyBrandOwner">—</div>
+                    </div>
+                </div>
+                <button type="button" class="arc-back-btn" id="backBtn">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="10 2 4 8 10 14"/>
+                    </svg>
+                    Back to all brands
+                </button>
+            </div>
+
+            <div class="arc-card">
+                <div class="arc-card-header">
+                    <div>
+                        <h2 class="arc-card-title" id="historyCardTitle">Spend History</h2>
+                        <p class="arc-card-subtitle">Daily cost computed at 23:59 IST · Formula: MasterClicks × ConvRate × Multiplier(725–775)</p>
+                    </div>
+                </div>
+                <div class="arc-table-wrap">
+                    <table class="arc-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th class="right">Final Cost</th>
+                                <th class="right">Master Clicks</th>
+                                <th class="right">Conv. Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr class="arc-state-row"><td colspan="4"><span class="arc-state-icon">⏳</span>Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/js/utils.js"></script>
+    <script>
+    (function () {
+        // Guard: admin only
+        var user = sessionStorage.getItem('username');
+        if (!user) { window.location.href = '/Login.html'; return; }
+        if (sessionStorage.getItem('role') !== 'admin') { window.location.href = '/Dashboard.html'; return; }
+        document.getElementById('navUsername').textContent = user;
+
+        var inrFmt = new Intl.NumberFormat('en-IN', {
+            style: 'currency', currency: 'INR',
+            minimumFractionDigits: 2, maximumFractionDigits: 2
+        });
+
+        function escHtml(s) {
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function fmtDate(dateKey) {
+            if (!dateKey) return '—';
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+                var d = new Date(dateKey + 'T12:00:00+05:30');
+                return d.toLocaleDateString('en-IN', {
+                    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata'
+                });
+            }
+            return dateKey;
+        }
+
+        // ── Brands view ──────────────────────────────────────────────────────
+
+        var brandsCache = [];
+
+        function renderBrands(brands) {
+            var tbody = document.getElementById('brandsTableBody');
+            if (!brands || brands.length === 0) {
+                tbody.innerHTML = '<tr class="arc-state-row"><td colspan="6"><span class="arc-state-icon">📋</span>No brands found. Add brands from the Add Brand page.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = brands.map(function (b) {
+                var logoHtml = b.logoPath
+                    ? '<img src="' + escHtml(normalizeLogoSrc(b.logoPath)) + '" alt="' + escHtml(b.name) + '" onerror="this.style.display=\'none\'">'
+                    : '';
+                var lastDate = b.lastSpendDate ? fmtDate(b.lastSpendDate) : '<span class="arc-no-history">No history yet</span>';
+                var lastCost = b.lastSpendCost != null
+                    ? '<span class="arc-cost-badge">' + escHtml(inrFmt.format(b.lastSpendCost)) + '</span>'
+                    : '<span class="arc-no-history">—</span>';
+                var statusHtml = b.active
+                    ? '<span class="arc-status active">Active</span>'
+                    : '<span class="arc-status inactive">Inactive</span>';
+                return '<tr class="arc-brand-row" data-brand-id="' + escHtml(b.id) + '" data-brand-idx>' +
+                    '<td><div class="arc-brand-cell">' +
+                        '<div class="arc-logo-wrap">' + logoHtml + '</div>' +
+                        '<div><div class="arc-brand-name">' + escHtml(b.name) + '</div></div>' +
+                    '</div></td>' +
+                    '<td class="arc-date-text">' + escHtml(b.ownerUsername) + '</td>' +
+                    '<td class="center">' + statusHtml + '</td>' +
+                    '<td class="arc-date-text">' + lastDate + '</td>' +
+                    '<td class="right">' + lastCost + '</td>' +
+                    '<td class="right"><button type="button" class="arc-delete-btn" data-delete-id="' + escHtml(b.id) + '" data-delete-name="' + escHtml(b.name) + '" aria-label="Delete ' + escHtml(b.name) + '" title="Delete brand">' +
+                        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 4 14 4"/><path d="M5 4V2h6v2"/><path d="M3 4l1 10h8l1-10"/></svg>' +
+                    '</button></td>' +
+                    '</tr>';
+            }).join('');
+
+            // Row click → history; delete btn → delete
+            tbody.querySelectorAll('.arc-brand-row').forEach(function (tr) {
+                tr.addEventListener('click', function (e) {
+                    if (e.target.closest('.arc-delete-btn')) return; // handled below
+                    var brandId = tr.dataset.brandId;
+                    var brand = brandsCache.find(function (b) { return b.id === brandId; });
+                    if (brand) showHistory(brand);
+                });
+            });
+            tbody.querySelectorAll('.arc-delete-btn').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    deleteBrand(btn.dataset.deleteId, btn.dataset.deleteName);
+                });
+            });
+        }
+
+        function loadBrands() {
+            var btn = document.getElementById('brandsRefreshBtn');
+            btn.classList.add('spinning'); btn.disabled = true;
+            fetch('/api/admin/archive-brands', { credentials: 'include' })
+                .then(function (res) {
+                    if (res.status === 401) { window.location.href = '/Login.html'; return null; }
+                    if (res.status === 403) { window.location.href = '/Dashboard.html'; return null; }
+                    if (!res.ok) throw new Error('Server error ' + res.status);
+                    return res.json();
+                })
+                .then(function (data) {
+                    if (!data) return;
+                    brandsCache = data.brands || [];
+                    renderBrands(brandsCache);
+                })
+                .catch(function (e) {
+                    document.getElementById('brandsTableBody').innerHTML =
+                        '<tr class="arc-state-row"><td colspan="6">Could not load brands: ' + escHtml(e.message) + '</td></tr>';
+                })
+                .finally(function () {
+                    btn.classList.remove('spinning'); btn.disabled = false;
+                });
+        }
+
+        function deleteBrand(brandId, brandName) {
+            if (!confirm('Delete brand "' + brandName + '"?\n\nThis permanently removes the brand, its logo, and all client logins. Spend history is preserved.\n\nThis cannot be undone.')) return;
+            fetch('/api/brands', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ brandId: brandId })
+            })
+            .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+            .then(function (result) {
+                if (result.ok && result.data.success) {
+                    loadBrands();
+                } else {
+                    alert('Could not delete: ' + ((result.data && result.data.error) || 'Unknown error'));
+                }
+            })
+            .catch(function () { alert('Request failed.'); });
+        }
+
+        // ── History view ─────────────────────────────────────────────────────
+
+        function showHistory(brand) {
+            document.getElementById('brandsView').style.display = 'none';
+            document.getElementById('historyView').style.display = 'block';
+            document.getElementById('historyBrandName').textContent = brand.name;
+            document.getElementById('historyBrandOwner').textContent = 'Owner: ' + brand.ownerUsername;
+            document.getElementById('historyCardTitle').textContent = brand.name + ' — Spend History';
+            var img = document.getElementById('historyLogoImg');
+            if (brand.logoPath) {
+                img.src = normalizeLogoSrc(brand.logoPath);
+                img.alt = brand.name;
+                img.style.display = '';
+            } else {
+                img.style.display = 'none';
+            }
+            loadHistory(brand.id);
+        }
+
+        function loadHistory(brandId) {
+            var tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '<tr class="arc-state-row"><td colspan="4"><span class="arc-state-icon">⏳</span>Loading…</td></tr>';
+            fetch('/api/admin/archive-history?brandId=' + encodeURIComponent(brandId), { credentials: 'include' })
+                .then(function (res) {
+                    if (!res.ok) throw new Error('Server error ' + res.status);
+                    return res.json();
+                })
+                .then(function (data) {
+                    renderHistory(data.history || []);
+                })
+                .catch(function (e) {
+                    tbody.innerHTML = '<tr class="arc-state-row"><td colspan="4">Could not load history: ' + escHtml(e.message) + '</td></tr>';
+                });
+        }
+
+        function renderHistory(records) {
+            var tbody = document.getElementById('historyTableBody');
+            if (!records || records.length === 0) {
+                tbody.innerHTML = '<tr class="arc-state-row"><td colspan="4"><span class="arc-state-icon">📅</span>No history yet.<br><span style="font-size:0.82rem;">History is recorded at 23:59 IST each day. Check back tomorrow.</span></td></tr>';
+                return;
+            }
+            tbody.innerHTML = records.map(function (r) {
+                var cost = typeof r.cost === 'number' ? r.cost : parseFloat(r.cost) || 0;
+                var convRate = r.conversionRate != null ? (r.conversionRate * 100).toFixed(2) + '%' : '—';
+                var masterClicks = r.masterClicks != null ? Number(r.masterClicks).toLocaleString('en-IN') : '—';
+                return '<tr>' +
+                    '<td class="arc-date-text">' + escHtml(fmtDate(r.date)) + '</td>' +
+                    '<td class="right"><span class="arc-cost-badge">' + escHtml(inrFmt.format(cost)) + '</span></td>' +
+                    '<td class="right">' + escHtml(masterClicks) + '</td>' +
+                    '<td class="right arc-conv-rate">' + escHtml(convRate) + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        document.getElementById('backBtn').addEventListener('click', function () {
+            document.getElementById('historyView').style.display = 'none';
+            document.getElementById('brandsView').style.display = 'block';
+        });
+
+        document.getElementById('brandsRefreshBtn').addEventListener('click', loadBrands);
+
+        // Initial load
+        loadBrands();
+    })();
+    </script>
+
+    <script src="/js/internal-nav.js"></script>
+    <script src="/js/internal-user-menu.js"></script>
+    <div data-shared-footer></div>
+    <script src="/js/layout-shell.js"></script>
+</body>
+</html>

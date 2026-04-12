@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kelvera Daily Conversion Input</title>
-    <link rel="stylesheet" href="/css/styles.css">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/css/report-billing.css">
 
 </head>
@@ -36,35 +40,18 @@
           </label>
           <button type="submit">Save</button>
         </form>
-        <div id="message" class="msg"></div>
+        <div id="message" class="msg" role="alert"></div>
       </div>
     </section>
   </main>
 
+  <script src="/js/utils.js"></script>
+  <script src="/js/report-api.js"></script>
   <script>
-    const API_BASES = ["https://admin.flipchat.link"];
     const todayDate = document.getElementById("todayDate");
     const form = document.getElementById("conversionForm");
     const input = document.getElementById("conversionsInput");
     const message = document.getElementById("message");
-
-    function getIstDateKey(date = new Date()) {
-      const dt = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-      const y = dt.getFullYear();
-      const m = String(dt.getMonth() + 1).padStart(2, "0");
-      const d = String(dt.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    }
-
-    function formatIstDate(date = new Date()) {
-      return date.toLocaleDateString("en-IN", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        timeZone: "Asia/Kolkata",
-      });
-    }
 
     const formatted = formatIstDate();
     const todayKey = getIstDateKey();
