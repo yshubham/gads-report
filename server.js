@@ -1609,7 +1609,6 @@ async function handleProxyConversionsGet(req, res) {
 }
 
 async function handleProxyConversionsPost(req, res) {
-  if (!requireInternalSession(req, res)) return;
   const payload = await parseJsonBody(req, res);
   if (payload === null) return;
   try {
