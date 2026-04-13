@@ -66,9 +66,8 @@
       let lastError = null;
       for (const base of API_BASES) {
         try {
-          const res = await fetch(`${base}/api/conversions`, {
+          const res = await fetch(`${base}/api/proxy/conversions`, {
             method: "GET",
-            mode: "cors",
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
@@ -94,9 +93,8 @@
       let lastError = null;
       for (const base of API_BASES) {
         try {
-          const res = await fetch(`${base}/api/conversions`, {
+          const res = await fetch(`${base}/api/proxy/conversions`, {
             method: "POST",
-            mode: "cors",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ conversions }),
           });

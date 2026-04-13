@@ -351,6 +351,61 @@
       text-align: center;
     }
 
+    /* ── Empty state ─────────────────────────────────────── */
+    .cd-empty-state {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 36px 28px 32px;
+      gap: 10px;
+    }
+
+    .cd-empty-icon {
+      color: var(--color-text-dim);
+      opacity: 0.55;
+      margin-bottom: 4px;
+    }
+
+    .cd-empty-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-text);
+      margin: 0;
+    }
+
+    .cd-empty-msg {
+      font-size: 0.875rem;
+      color: var(--color-text-dim);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .cd-fun-fact-box {
+      margin-top: 20px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      max-width: 460px;
+      width: 100%;
+      text-align: left;
+    }
+
+    .cd-fun-fact-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: rgba(120, 184, 138, 0.85);
+      margin-bottom: 8px;
+    }
+
+    .cd-fun-fact-text {
+      font-size: 0.875rem;
+      color: var(--color-text);
+      line-height: 1.6;
+    }
+
     /* ── Responsive ──────────────────────────────────────── */
     @media (max-width: 600px) {
       .cd-shell { padding: 12px 10px 40px; }
@@ -468,6 +523,23 @@
             <div class="cd-metric-label">Impressions</div>
             <div class="cd-metric-value" id="v-impressions">—</div>
           </div>
+        </div>
+      </div>
+
+      <!-- Empty state (shown when no campaign data is available) -->
+      <div class="cd-empty-state" id="emptyState" style="display:none">
+        <div class="cd-empty-icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <p class="cd-empty-title">No data yet for today</p>
+        <p class="cd-empty-msg">Campaigns haven't started yet. Check back once they go live!</p>
+        <div class="cd-fun-fact-box">
+          <div class="cd-fun-fact-label">Fun fact while you wait</div>
+          <div class="cd-fun-fact-text" id="funFactText">Loading a fun fact…</div>
         </div>
       </div>
 
@@ -604,11 +676,53 @@
         el("v-impressions").textContent = "—";
       }
 
+      const FALLBACK_FACTS = [
+        "Honey never spoils — archaeologists have found 3,000-year-old honey in Egyptian tombs that was still edible.",
+        "A group of flamingos is called a flamboyance.",
+        "The world's largest office building is the Pentagon, with about 6.5 million square feet of space.",
+        "Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid.",
+        "Bananas are berries, but strawberries are not — botanically speaking.",
+        "The shortest war in history lasted 38–45 minutes: Britain vs Zanzibar in 1896.",
+        "Octopuses have three hearts, blue blood, and can taste with their suckers.",
+        "A day on Venus is longer than a year on Venus.",
+        "The Great Wall of China is not visible from space with the naked eye — that's a myth.",
+        "Wombat droppings are cube-shaped, the only known animal to produce square scat.",
+      ];
+
+      async function loadFunFact() {
+        const textEl = el("funFactText");
+        try {
+          const res = await fetch("https://uselessfacts.jsph.pl/api/v2/facts/random?language=en");
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.text) {
+              textEl.textContent = data.text;
+              return;
+            }
+          }
+        } catch (_) { /* fall through to local fallback */ }
+        textEl.textContent = FALLBACK_FACTS[Math.floor(Math.random() * FALLBACK_FACTS.length)];
+      }
+
+      function showEmptyState() {
+        el("emptyState").style.display = "flex";
+        const metricsEl = document.querySelector(".cd-metrics");
+        if (metricsEl) metricsEl.style.display = "none";
+        loadFunFact();
+      }
+
+      function hideEmptyState() {
+        el("emptyState").style.display = "none";
+        const metricsEl = document.querySelector(".cd-metrics");
+        if (metricsEl) metricsEl.style.removeProperty("display");
+      }
+
       async function runRefresh() {
         const dateKey = getIstDateKey();
 
         showError("");
         showWarn("");
+        hideEmptyState();
         setLoading(true);
         clearDerived();
         el("todayDate").textContent = formatIstLongFromKey(dateKey);
@@ -619,7 +733,7 @@
           const warnings = [];
           const reportRes = await tryFetchReport(CLIENT_SLUG, dateKey);
           if (!reportRes.ok || !reportRes.data) {
-            showError(reportRes.message || "Could not load report.");
+            showEmptyState();
             setLoading(false);
             return;
           }
@@ -635,14 +749,14 @@
           const groupData = rep.groupData;
           const master = getMasterClicksForBrand(groupData, brandName);
           if (!master.matched) {
-            showError('No group named "' + brandName + '" in the report for this date. Check that your brand name matches the agent group name.');
+            showEmptyState();
             setLoading(false);
             return;
           }
 
           const convRes = await fetchConversionsForDate(dateKey);
           if (!convRes.ok) {
-            showError(convRes.message || "Could not load conversions.");
+            showEmptyState();
             setLoading(false);
             return;
           }
@@ -710,7 +824,7 @@
           el("v-clicks").textContent = intFormat.format(derivedClicks);
           el("v-impressions").textContent = intFormat.format(impressions);
         } catch (e) {
-          showError("Something went wrong. Please try again.");
+          showEmptyState();
         } finally {
           setLoading(false);
         }

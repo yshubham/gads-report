@@ -27,6 +27,8 @@ function registerBrandRoutes(routes, handlers) {
 
 function registerClientRoutes(routes, handlers) {
   routes.set('POST /api/client-login', handlers.handleClientLogin);
+  routes.set('GET /api/proxy/conversions', handlers.handleProxyConversionsGet);
+  routes.set('POST /api/proxy/conversions', handlers.handleProxyConversionsPost);
 }
 
 function buildApiRoutes(handlers) {

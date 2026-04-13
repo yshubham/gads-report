@@ -1,20 +1,21 @@
 // Shared API access functions for the external report and conversion endpoints.
 // Defines API_BASES and STAKE_REPORT_SLUG in one place.
 
-var API_BASES = ["https://admin.flipchat.link"];
+// API_BASES uses same-origin proxy paths — the server forwards to the external API server-side.
+var API_BASES = [""];
 var STAKE_REPORT_SLUG = "ipl2026";
 
 async function tryFetchReport(slug, dateKey) {
   var lastError = null;
   for (var i = 0; i < API_BASES.length; i++) {
     var base = API_BASES[i];
-    var datedUrl = base + "/api/reports/" + encodeURIComponent(slug) + "?date=" + encodeURIComponent(dateKey);
-    var fallbackUrl = base + "/api/reports/" + encodeURIComponent(slug);
+    var datedUrl = base + "/api/proxy/reports/" + encodeURIComponent(slug) + "?date=" + encodeURIComponent(dateKey);
+    var fallbackUrl = base + "/api/proxy/reports/" + encodeURIComponent(slug);
     try {
-      var res = await fetch(datedUrl, { method: "GET", mode: "cors" });
+      var res = await fetch(datedUrl, { method: "GET" });
       var data = await res.json().catch(function () { return {}; });
       if (!res.ok) {
-        res = await fetch(fallbackUrl, { method: "GET", mode: "cors" });
+        res = await fetch(fallbackUrl, { method: "GET" });
         data = await res.json().catch(function () { return {}; });
       }
       if (!res.ok) {
@@ -22,12 +23,12 @@ async function tryFetchReport(slug, dateKey) {
       }
       return { ok: true, data: data };
     } catch (e) {
-      lastError = "Could not reach " + base;
+      lastError = "Could not reach server proxy";
     }
   }
   return {
     ok: false,
-    message: lastError || "Network/CORS error. Check that the API is deployed and reachable."
+    message: lastError || "Network error. Check your connection."
   };
 }
 
@@ -35,13 +36,13 @@ async function fetchConversionsForDate(dateKey) {
   var lastError = null;
   for (var i = 0; i < API_BASES.length; i++) {
     var base = API_BASES[i];
-    var datedUrl = base + "/api/conversions?date=" + encodeURIComponent(dateKey);
-    var fallbackUrl = base + "/api/conversions";
+    var datedUrl = base + "/api/proxy/conversions?date=" + encodeURIComponent(dateKey);
+    var fallbackUrl = base + "/api/proxy/conversions";
     try {
-      var res = await fetch(datedUrl, { method: "GET", mode: "cors" });
+      var res = await fetch(datedUrl, { method: "GET" });
       var data = await res.json().catch(function () { return {}; });
       if (!res.ok) {
-        res = await fetch(fallbackUrl, { method: "GET", mode: "cors" });
+        res = await fetch(fallbackUrl, { method: "GET" });
         data = await res.json().catch(function () { return {}; });
       }
       if (!res.ok) {
@@ -59,12 +60,12 @@ async function fetchConversionsForDate(dateKey) {
         data: { conversions: Math.floor(conversions), updatedAt: data.updatedAt || null }
       };
     } catch (e) {
-      lastError = "Could not reach " + base;
+      lastError = "Could not reach server proxy";
     }
   }
   return {
     ok: false,
-    message: lastError || "Network/CORS error."
+    message: lastError || "Network error."
   };
 }
 

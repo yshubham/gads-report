@@ -17,6 +17,8 @@ const SESSION_SECRET = process.env.SESSION_SECRET || '';
 const ALLOW_LEGACY_FILE_AUTH = String(process.env.ALLOW_LEGACY_FILE_AUTH || '').toLowerCase() === 'true';
 const BCRYPT_ROUNDS = 10;
 
+const EXTERNAL_API_BASE = 'https://admin.flipchat.link';
+
 const MIME_TYPES = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -1563,6 +1565,72 @@ function handleReportData(req, res) {
   });
 }
 
+// --- External API proxy handlers ---
+// These forward requests to the external API server-to-server, avoiding CORS.
+// GET /api/proxy/reports/<slug>?date=... is handled via regex in the HTTP server below.
+// GET/POST /api/proxy/conversions are registered in the route map.
+
+async function handleProxyReport(req, res) {
+  const urlPath = req.url.split('?')[0];
+  const m = urlPath.match(/^\/api\/proxy\/reports\/([^/]+)$/);
+  if (!m) { sendJson(res, 400, { error: 'Invalid slug' }); return; }
+  const slug = decodeURIComponent(m[1]);
+  const qs = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
+  try {
+    const upstream = await fetch(
+      EXTERNAL_API_BASE + '/api/reports/' + encodeURIComponent(slug) + qs,
+      { method: 'GET' }
+    );
+    const body = await upstream.text();
+    res.setHeader('Content-Type', 'application/json');
+    res.writeHead(upstream.status);
+    res.end(body);
+  } catch (e) {
+    console.error('[proxy] report fetch failed:', e.message);
+    sendJson(res, 502, { error: 'Could not reach upstream API' });
+  }
+}
+
+async function handleProxyConversionsGet(req, res) {
+  const qs = req.url.includes('?') ? '?' + req.url.split('?')[1] : '';
+  try {
+    const upstream = await fetch(
+      EXTERNAL_API_BASE + '/api/conversions' + qs,
+      { method: 'GET' }
+    );
+    const body = await upstream.text();
+    res.setHeader('Content-Type', 'application/json');
+    res.writeHead(upstream.status);
+    res.end(body);
+  } catch (e) {
+    console.error('[proxy] conversions GET failed:', e.message);
+    sendJson(res, 502, { error: 'Could not reach upstream API' });
+  }
+}
+
+async function handleProxyConversionsPost(req, res) {
+  if (!requireInternalSession(req, res)) return;
+  const payload = await parseJsonBody(req, res);
+  if (payload === null) return;
+  try {
+    const upstream = await fetch(
+      EXTERNAL_API_BASE + '/api/conversions',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    const body = await upstream.text();
+    res.setHeader('Content-Type', 'application/json');
+    res.writeHead(upstream.status);
+    res.end(body);
+  } catch (e) {
+    console.error('[proxy] conversions POST failed:', e.message);
+    sendJson(res, 502, { error: 'Could not reach upstream API' });
+  }
+}
+
 const apiRoutes = buildApiRoutes({
   handleLogin,
   handleLogout,
@@ -1579,6 +1647,8 @@ const apiRoutes = buildApiRoutes({
   handleReplaceBrandLogo,
   handleDeleteBrand,
   handleClientLogin,
+  handleProxyConversionsGet,
+  handleProxyConversionsPost,
   handleAdminSpendHistory,
   handleArchiveBrands,
   handleArchiveHistory,
@@ -1594,6 +1664,13 @@ const server = http.createServer((req, res) => {
 
   let urlPath = req.url === '/' ? '/Login.html' : req.url;
   urlPath = urlPath.split('?')[0];
+  if (req.method === 'GET' && /^\/api\/proxy\/reports\/[^/]+$/.test(urlPath)) {
+    handleProxyReport(req, res).catch((e) => {
+      console.error(e);
+      sendJson(res, 500, { error: 'Error' });
+    });
+    return;
+  }
   if (req.method === 'GET' && /^\/api\/brands\/logo\/[a-f0-9]{24}$/i.test(urlPath)) {
     handleBrandLogo(req, res, urlPath).catch((e) => {
       console.error(e);
@@ -1779,7 +1856,7 @@ async function runDailySpendCron(dateKey) {
   if (!isConnected()) { console.log('[cron] MongoDB not connected — skipping daily spend run.'); return; }
   console.log('[cron] Starting daily spend calculation for', dateKey);
   try {
-    const API_BASE = 'https://admin.flipchat.link';
+    const API_BASE = EXTERNAL_API_BASE;
     const SLUG = 'ipl2026';
     const MIN_RATE = 0.05, MAX_RATE = 0.30;
 
