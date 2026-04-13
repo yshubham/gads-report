@@ -62,33 +62,6 @@
       input.value = input.value.replace(/\D/g, "");
     });
 
-    async function fetchTodayConversion() {
-      let lastError = null;
-      for (const base of API_BASES) {
-        try {
-          const res = await fetch(`${base}/api/proxy/conversions`, {
-            method: "GET",
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            return {
-              ok: false,
-              message: data.error || `Request failed (${res.status})`,
-            };
-          }
-          return { ok: true, data };
-        } catch {
-          lastError = `Could not reach ${base}`;
-        }
-      }
-      return {
-        ok: false,
-        message:
-          lastError ||
-          "Network/CORS error. Check that the API is deployed and reachable.",
-      };
-    }
-
     async function saveTodayConversion(conversions) {
       let lastError = null;
       for (const base of API_BASES) {
@@ -96,7 +69,7 @@
           const res = await fetch(`${base}/api/proxy/conversions`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ conversions }),
+            body: JSON.stringify({ conversions, dateKey: todayKey }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
@@ -131,11 +104,8 @@
     }
 
     async function loadTodayFromApi() {
-      const out = await fetchTodayConversion();
+      const out = await fetchConversionsForDate(todayKey);
       if (!out.ok || !out.data) {
-        return;
-      }
-      if (out.data.dateKey !== todayKey) {
         return;
       }
       const existing = Number(out.data.conversions ?? 0);
