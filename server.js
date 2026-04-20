@@ -1645,21 +1645,27 @@ async function handleProxyConversionsPost(req, res) {
       const dateKey = String(parsed.dateKey || payload.dateKey || '');
       if (dateKey && isConnected()) {
         try {
-          const stakeClicks = await fetchStakeClicksFromUpstream(dateKey);
+          const freshStakeClicks = await fetchStakeClicksFromUpstream(dateKey);
+          const existing = await getDb().collection('conversions_snapshots').findOne({ dateKey });
+          const useFresh = Number.isFinite(freshStakeClicks) && freshStakeClicks > 0;
+          const stakeClicksToWrite = useFresh ? freshStakeClicks : (existing?.stakeClicks ?? null);
+          if (!useFresh) {
+            console.warn('[snapshot] upstream stakeClicks was', freshStakeClicks, '— keeping prior value', stakeClicksToWrite, 'for', dateKey);
+          }
           await getDb().collection('conversions_snapshots').updateOne(
             { dateKey },
             {
               $set: {
                 dateKey,
                 conversions: Math.floor(Number(parsed.conversions ?? payload.conversions) || 0),
-                stakeClicks,
+                stakeClicks: stakeClicksToWrite,
                 updatedAt: parsed.updatedAt || new Date().toISOString(),
                 snapshotAt: new Date(),
               },
             },
             { upsert: true }
           );
-          console.log('[snapshot] conversions_snapshots upserted for', dateKey, '— stakeClicks:', stakeClicks);
+          console.log('[snapshot] conversions_snapshots upserted for', dateKey, '— stakeClicks:', stakeClicksToWrite);
         } catch (err) {
           console.error('[snapshot] conversions_snapshots upsert failed:', err.message);
         }
