@@ -163,15 +163,14 @@
         return;
       }
 
-      const stakeReport = await tryFetchReport(STAKE_REPORT_SLUG, dateKey);
-      if (!stakeReport.ok || !stakeReport.data) {
+      const stakeClicks = Number(conversionData.stakeClicks);
+      if (!Number.isFinite(stakeClicks) || stakeClicks <= 0) {
         conversionRate.textContent = "Conversion %: --";
         lastUpdated.textContent = `Last updated (IST): ${formatIstTime(conversionData.updatedAt)}`;
         return;
       }
 
-      const stakeClicks = getStakeClicks(stakeReport.data.groupData);
-      const rate = stakeClicks > 0 ? conversionData.conversions / stakeClicks : 0;
+      const rate = conversionData.conversions / stakeClicks;
       conversionRate.textContent = `Conversion %: ${rate.toFixed(4)}`;
       lastUpdated.textContent = `Last updated (IST): ${formatIstTime(conversionData.updatedAt)}`;
       conversionCache = {

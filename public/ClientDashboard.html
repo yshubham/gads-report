@@ -535,8 +535,8 @@
             <circle cx="12" cy="16" r="0.5" fill="currentColor"/>
           </svg>
         </div>
-        <p class="cd-empty-title">No data yet for today</p>
-        <p class="cd-empty-msg">Campaigns haven't started yet. Check back once they go live!</p>
+        <p class="cd-empty-title" id="emptyStateTitle">No data yet for today</p>
+        <p class="cd-empty-msg" id="emptyStateMsg">Campaigns haven't started yet. Check back once they go live!</p>
         <div class="cd-fun-fact-box">
           <div class="cd-fun-fact-label">Fun fact while you wait</div>
           <div class="cd-fun-fact-text" id="funFactText">Loading a fun fact…</div>
@@ -598,28 +598,26 @@
 
       const MIN_CONV_RATE = 0.05;
       const MAX_CONV_RATE = 0.30;
-      const CACHE_KEY = "cd_cache_" + brandName;
+      const RANDOMS_KEY = "cd_randoms_" + brandName;
 
       function randomMultiplier() {
         return Math.floor(Math.random() * 51) + 725;
       }
 
-      function readCache() {
+      function readDailyRandoms(dateKey) {
         try {
-          const raw = sessionStorage.getItem(CACHE_KEY);
-          return raw ? JSON.parse(raw) : null;
+          const raw = sessionStorage.getItem(RANDOMS_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return parsed && parsed.dateKey === dateKey ? parsed : null;
         } catch (e) {
           return null;
         }
       }
 
-      function writeCache(dateKey, conversionMarker, values) {
+      function writeDailyRandoms(dateKey, mult, baseCpc, ctrPct) {
         try {
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-            dateKey,
-            conversionMarker,
-            ...values
-          }));
+          sessionStorage.setItem(RANDOMS_KEY, JSON.stringify({ dateKey, mult, baseCpc, ctrPct }));
         } catch (e) {
           // sessionStorage unavailable — gracefully degrade
         }
@@ -704,11 +702,18 @@
         textEl.textContent = FALLBACK_FACTS[Math.floor(Math.random() * FALLBACK_FACTS.length)];
       }
 
-      function showEmptyState() {
+      function showEmptyState(title, msg) {
+        if (title !== undefined) el("emptyStateTitle").textContent = title;
+        if (msg !== undefined) el("emptyStateMsg").textContent = msg;
         el("emptyState").style.display = "flex";
         const metricsEl = document.querySelector(".cd-metrics");
         if (metricsEl) metricsEl.style.display = "none";
-        loadFunFact();
+        if (title === undefined) loadFunFact();
+      }
+
+      function resetEmptyState() {
+        el("emptyStateTitle").textContent = "No data yet for today";
+        el("emptyStateMsg").textContent = "Campaigns haven't started yet. Check back once they go live!";
       }
 
       function hideEmptyState() {
@@ -722,6 +727,7 @@
 
         showError("");
         showWarn("");
+        resetEmptyState();
         hideEmptyState();
         setLoading(true);
         clearDerived();
@@ -767,54 +773,40 @@
             warnings.push("Conversions API may have ignored the date parameter; totals are for the date the server returned.");
           }
 
-          const stakeClicks = getStakeClicks(groupData);
+          // Use frozen stakeClicks from conversions snapshot — only changes when conversions is updated
+          const frozenStakeClicks = convRes.data ? Number(convRes.data.stakeClicks) : NaN;
+          const stakeClicks = Number.isFinite(frozenStakeClicks) && frozenStakeClicks >= 0
+            ? frozenStakeClicks : 0;
+
           let conversionRate = 0;
           if (convRes.data && stakeClicks > 0) {
             const rawRate = convRes.data.conversions / stakeClicks;
             conversionRate = Math.max(MIN_CONV_RATE, Math.min(MAX_CONV_RATE, rawRate));
           } else {
-            if (!convRes.data && !convRes.dateMismatch) {
-              warnings.push("Conversion data missing for this date; derived cost may be zero.");
-            }
-            if (stakeClicks <= 0) {
-              warnings.push("Stake group clicks missing or zero; conversion rate unavailable.");
-            }
+            showEmptyState("Campaign not Active", "");
+            setLoading(false);
+            return;
           }
 
-          // Build a cache marker from the inputs that drive derived calculations.
-          // If either changes, we regenerate; otherwise reuse cached values.
-          const conversionMarker = convRes.data
-            ? convRes.data.conversions + "|" + stakeClicks
-            : "0|0";
-
-          const cached = readCache();
-          let cost, cpc, ctrPct, derivedClicks, impressions;
-
-          if (
-            cached &&
-            cached.dateKey === dateKey &&
-            cached.conversionMarker === conversionMarker &&
-            Number.isFinite(cached.cost)
-          ) {
-            // Cache hit — reuse stable values
-            cost = cached.cost;
-            cpc = cached.cpc;
-            ctrPct = cached.ctr;
-            derivedClicks = cached.clicks;
-            impressions = cached.impressions;
-          } else {
-            // Cache miss — compute fresh random values and store them
+          // Load or generate stable daily randoms — picked once per day, reused across all refreshes
+          let randoms = readDailyRandoms(dateKey);
+          if (!randoms) {
             const mult = randomMultiplier();
-            const costRaw = master.clicks * conversionRate * mult;
-            cpc = randomInRange(9, 11, 2);
-            ctrPct = randomInRange(0.4, 0.6, 2);
-            cost = costRaw;
-            derivedClicks = Math.round(cost / cpc);
-            impressions = ctrPct > 0 && derivedClicks > 0
-              ? Math.round((derivedClicks / ctrPct) * 100)
-              : 0;
-            writeCache(dateKey, conversionMarker, { cost, cpc, ctr: ctrPct, clicks: derivedClicks, impressions });
+            const baseCpc = randomInRange(9, 11, 2);
+            const ctrPct = randomInRange(0.4, 0.6, 2);
+            writeDailyRandoms(dateKey, mult, baseCpc, ctrPct);
+            randoms = { dateKey, mult, baseCpc, ctrPct };
           }
+
+          // Recompute metrics each refresh using stable randoms + live masterClicks + frozen rate
+          const cost = master.clicks * conversionRate * randoms.mult;
+          const wiggle = randomInRange(-0.5, 0.5, 2);
+          const cpc = parseFloat(Math.max(0.01, randoms.baseCpc + wiggle).toFixed(2));
+          const ctrPct = randoms.ctrPct;
+          const derivedClicks = cpc > 0 ? Math.round(cost / cpc) : 0;
+          const impressions = ctrPct > 0 && derivedClicks > 0
+            ? Math.round((derivedClicks / ctrPct) * 100)
+            : 0;
 
           showWarnings(warnings);
 
@@ -839,7 +831,7 @@
 
       el("logoutLink").addEventListener("click", function (e) {
         e.preventDefault();
-        sessionStorage.removeItem(CACHE_KEY);
+        sessionStorage.removeItem(RANDOMS_KEY);
         sessionStorage.removeItem("clientBrandName");
         sessionStorage.removeItem("clientLogoPath");
         sessionStorage.removeItem("clientUsername");

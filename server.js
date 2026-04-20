@@ -18,6 +18,7 @@ const ALLOW_LEGACY_FILE_AUTH = String(process.env.ALLOW_LEGACY_FILE_AUTH || '').
 const BCRYPT_ROUNDS = 10;
 
 const EXTERNAL_API_BASE = 'https://admin.flipchat.link';
+const STAKE_REPORT_SLUG = 'ipl2026';
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -1599,9 +1600,26 @@ async function handleProxyConversionsGet(req, res) {
       { method: 'GET' }
     );
     const body = await upstream.text();
-    res.setHeader('Content-Type', 'application/json');
-    res.writeHead(upstream.status);
-    res.end(body);
+    if (!upstream.ok) {
+      res.setHeader('Content-Type', 'application/json');
+      res.writeHead(upstream.status);
+      res.end(body);
+      return;
+    }
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { parsed = {}; }
+    if (parsed.dateKey && isConnected()) {
+      try {
+        const snap = await getDb().collection('conversions_snapshots').findOne({ dateKey: String(parsed.dateKey) });
+        parsed.stakeClicks = snap?.stakeClicks ?? null;
+      } catch (e) {
+        console.error('[proxy] conversions snapshot lookup failed:', e.message);
+        parsed.stakeClicks = null;
+      }
+    } else {
+      parsed.stakeClicks = null;
+    }
+    sendJson(res, upstream.status, parsed);
   } catch (e) {
     console.error('[proxy] conversions GET failed:', e.message);
     sendJson(res, 502, { error: 'Could not reach upstream API' });
@@ -1621,6 +1639,32 @@ async function handleProxyConversionsPost(req, res) {
       }
     );
     const body = await upstream.text();
+    if (upstream.ok) {
+      let parsed;
+      try { parsed = JSON.parse(body); } catch { parsed = {}; }
+      const dateKey = String(parsed.dateKey || payload.dateKey || '');
+      if (dateKey && isConnected()) {
+        try {
+          const stakeClicks = await fetchStakeClicksFromUpstream(dateKey);
+          await getDb().collection('conversions_snapshots').updateOne(
+            { dateKey },
+            {
+              $set: {
+                dateKey,
+                conversions: Math.floor(Number(parsed.conversions ?? payload.conversions) || 0),
+                stakeClicks,
+                updatedAt: parsed.updatedAt || new Date().toISOString(),
+                snapshotAt: new Date(),
+              },
+            },
+            { upsert: true }
+          );
+          console.log('[snapshot] conversions_snapshots upserted for', dateKey, '— stakeClicks:', stakeClicks);
+        } catch (err) {
+          console.error('[snapshot] conversions_snapshots upsert failed:', err.message);
+        }
+      }
+    }
     res.setHeader('Content-Type', 'application/json');
     res.writeHead(upstream.status);
     res.end(body);
@@ -1851,19 +1895,32 @@ async function fetchJson(url) {
   return res.json();
 }
 
+async function fetchStakeClicksFromUpstream(dateKey) {
+  try {
+    const url = EXTERNAL_API_BASE + '/api/reports/' + encodeURIComponent(STAKE_REPORT_SLUG) + '?date=' + encodeURIComponent(dateKey);
+    const report = await fetchJson(url);
+    const groupData = Array.isArray(report?.groupData) ? report.groupData : [];
+    const stakeRow = groupData.find((r) => String(r.group || '').trim().toLowerCase() === 'stake');
+    const clicks = Number(stakeRow?.clicks);
+    return Number.isFinite(clicks) && clicks >= 0 ? Math.floor(clicks) : null;
+  } catch (e) {
+    console.error('[snapshot] fetchStakeClicksFromUpstream failed:', e.message);
+    return null;
+  }
+}
+
 async function runDailySpendCron(dateKey) {
   if (!isConnected()) { console.log('[cron] MongoDB not connected — skipping daily spend run.'); return; }
   console.log('[cron] Starting daily spend calculation for', dateKey);
   try {
     const API_BASE = EXTERNAL_API_BASE;
-    const SLUG = 'ipl2026';
     const MIN_RATE = 0.05, MAX_RATE = 0.30;
 
     // Fetch report + conversions in parallel
     let reportData, convData;
     try {
       [reportData, convData] = await Promise.all([
-        fetchJson(API_BASE + '/api/reports/' + encodeURIComponent(SLUG) + '?date=' + encodeURIComponent(dateKey)),
+        fetchJson(API_BASE + '/api/reports/' + encodeURIComponent(STAKE_REPORT_SLUG) + '?date=' + encodeURIComponent(dateKey)),
         fetchJson(API_BASE + '/api/conversions?date=' + encodeURIComponent(dateKey)),
       ]);
     } catch (e) {

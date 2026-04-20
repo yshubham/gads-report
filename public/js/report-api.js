@@ -55,9 +55,14 @@ async function fetchConversionsForDate(dateKey) {
       if (!Number.isFinite(conversions) || conversions < 0) {
         return { ok: true, data: null };
       }
+      var stakeClicks = Number(data.stakeClicks);
       return {
         ok: true,
-        data: { conversions: Math.floor(conversions), updatedAt: data.updatedAt || null }
+        data: {
+          conversions: Math.floor(conversions),
+          stakeClicks: Number.isFinite(stakeClicks) && stakeClicks >= 0 ? stakeClicks : null,
+          updatedAt: data.updatedAt || null,
+        }
       };
     } catch (e) {
       lastError = "Could not reach server proxy";

@@ -41,6 +41,7 @@ async function ensureIndexes() {
   await db.collection('client_dashboard_users').createIndex({ brandId: 1 });
   await db.collection('brand_spend_history').createIndex({ date: -1, brandName: 1 });
   await db.collection('brand_spend_history').createIndex({ brandId: 1, date: -1 });
+  await db.collection('conversions_snapshots').createIndex({ dateKey: 1 }, { unique: true });
 }
 
 async function bootstrapInitialAdmin() {
