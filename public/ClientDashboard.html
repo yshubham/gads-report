@@ -406,6 +406,21 @@
       line-height: 1.6;
     }
 
+    .cd-cricket-image-box {
+      margin-top: 16px;
+      max-width: 460px;
+      width: 100%;
+    }
+    .cd-cricket-image {
+      width: 100%;
+      height: auto;
+      max-height: 240px;
+      object-fit: cover;
+      border-radius: 14px;
+      border: 1px solid var(--color-border);
+      display: block;
+    }
+
     /* ── Responsive ──────────────────────────────────────── */
     @media (max-width: 600px) {
       .cd-shell { padding: 12px 10px 40px; }
@@ -540,6 +555,9 @@
         <div class="cd-fun-fact-box">
           <div class="cd-fun-fact-label">Fun fact while you wait</div>
           <div class="cd-fun-fact-text" id="funFactText">Loading a fun fact…</div>
+        </div>
+        <div class="cd-cricket-image-box" id="emptyStateImageBox" style="display:none">
+          <img id="emptyStateImage" class="cd-cricket-image" alt="Cricket" loading="lazy" />
         </div>
       </div>
 
@@ -702,13 +720,47 @@
         textEl.textContent = FALLBACK_FACTS[Math.floor(Math.random() * FALLBACK_FACTS.length)];
       }
 
+      async function loadCricketImage() {
+        const box = el("emptyStateImageBox");
+        const img = el("emptyStateImage");
+        box.style.display = "none";
+        try {
+          // Wikimedia Commons — Category:Cricket (the sport). CC-licensed images, hotlink-friendly.
+          const res = await fetch(
+            "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*" +
+            "&generator=categorymembers&gcmtitle=Category%3ACricket&gcmtype=file&gcmlimit=50" +
+            "&prop=imageinfo&iiprop=url&iiurlwidth=640"
+          );
+          const json = await res.json();
+          const pages = Object.values(json?.query?.pages || {});
+          const urls = pages
+            .map(function(p) { return p?.imageinfo?.[0]?.thumburl || p?.imageinfo?.[0]?.url; })
+            .filter(function(u) { return u && /\.(jpe?g|png)(\?|$)/i.test(u); });
+          if (!urls.length) return;
+          const url = urls[Math.floor(Math.random() * urls.length)];
+          img.onerror = function() { box.style.display = "none"; };
+          img.onload = function() { box.style.display = "block"; };
+          img.src = url;
+        } catch (_) {
+          box.style.display = "none";
+        }
+      }
+
+      function hideCricketImage() {
+        const box = el("emptyStateImageBox");
+        if (box) box.style.display = "none";
+        const img = el("emptyStateImage");
+        if (img) { img.onload = null; img.onerror = null; img.removeAttribute("src"); }
+      }
+
       function showEmptyState(title, msg) {
         if (title !== undefined) el("emptyStateTitle").textContent = title;
         if (msg !== undefined) el("emptyStateMsg").textContent = msg;
         el("emptyState").style.display = "flex";
         const metricsEl = document.querySelector(".cd-metrics");
         if (metricsEl) metricsEl.style.display = "none";
-        if (title === undefined) loadFunFact();
+        loadFunFact();
+        loadCricketImage();
       }
 
       function resetEmptyState() {
@@ -720,6 +772,7 @@
         el("emptyState").style.display = "none";
         const metricsEl = document.querySelector(".cd-metrics");
         if (metricsEl) metricsEl.style.removeProperty("display");
+        hideCricketImage();
       }
 
       async function runRefresh() {
